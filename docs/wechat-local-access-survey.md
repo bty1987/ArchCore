@@ -1,0 +1,166 @@
+# 微信客户端本地化接入与客户信息归档 — 技术调研报告
+
+| | |
+|---|---|
+| 调研日期 | 2026-09-21 |
+| 版本 | v1.0 |
+| 状态 | 调研完成，结论为「有条件可行」 |
+| 密级 | 内部 |
+
+---
+
+## 一、摘要
+
+**结论：技术路线可以打通，但不经过 Wechaty 的 puppet-xp（已停更），推荐 WeChatFerry 直连 + 本地数据库解密的双轨架构。** 整条路线存在一个必须优先验证的外部前提：微信 3.9.x 旧版客户端的登录窗口正被腾讯服务端逐步关闭，此窗口的存续决定主轨方案寿命。
+
+- Token 路线（PadLocal 等付费协议服务）购买渠道失效，同类 iPad 协议方案（GeweChat）已于 2025 年停止维护，整条路线在收缩。
+- wechaty-puppet-xp 免费无 token，但项目实质停更（卡在微信 3.9.10.27），且自身缺陷无人修复，仅可用于短期验证，不可作长期地基。
+- WeChatFerry 是 Windows hook 方案中维护最活跃、生态最大的（支持微信 3.9.12.x，2026 年仍在发版），被 chatgpt-on-wechat（29.8k★）等主流项目作为底座。
+- 本轮新发现「本地数据库解密」工具族（PyWxDump / WeChatMsg / WeChatDataAnalysis / DbkeyHook），可直接解密微信本地 SQLite 库导出**历史**聊天记录，与 hook 的实时增量互补，构成归档双轨。
+
+## 二、背景与目标
+
+业务目标为建设「客户端与平台通信的客户信息归档管理」功能（个人微信会话存档 / SCRM 方向）。因 Wechaty 生态的 token（PadLocal 等）已无法购买，转向评估本地客户端（Windows PC 微信）接入路线的可行性，重点回答三个问题：
+
+1. 固定特定微信版本 + 本地 hook，是否可行；
+2. WeChatFerry 是否靠谱（文档看起来简陋）；
+3. 同类开源工具还有哪些，是否有更优选择。
+
+## 三、Wechaty 生态现状
+
+Wechaty 本体仍是活跃的开源对话机器人 SDK，核心价值在 Puppet（协议插件）抽象层与可切换性。但当前各协议路线分化严重：
+
+| 路线 | 代表 | 现状 | 判定 |
+|---|---|---|---|
+| 付费 Token / iPad 协议 | PadLocal、GeweChat | PadLocal 约 200 元/月/号，购买渠道失效；GeweChat 2025 年停维、无法登录；后有 SimplePad、dow-ipad-859 等小众替代 | ❌ 基本不可用 |
+| Web 网页协议 | itchat、wechat4u、puppet-wechat、vbot | 2017 年起腾讯大面积限制网页版登录，绝大多数账号扫码即拒 | ❌ 已死 |
+| Windows 本地 Hook | puppet-xp、WeChatFerry、wxhelper 等 | 免费无 token，依赖指定版本 PC 客户端；生态分化见第五节 | ⚠️ 有条件可用 |
+| Wechaty 桥接 | wechaty-puppet-wcferry | v0.1.7（2024-08）后停滞两年 | ➖ 不作依赖 |
+
+由于实际可用协议只剩一条（Windows 本地 hook），Wechaty 多协议抽象的价值趋零——这是绕过 Wechaty、直接对接 hook 框架的根本理由。
+
+## 四、关键风险：旧版微信登录窗口
+
+> **核心认知：客户端可以「固定」，登录权在腾讯服务端。**
+> 锁定微信版本（关闭自动更新）只解决客户端一半问题。登录时服务端版本校验才是门槛：连官方下载页仍保留的 3.9.12（3.9.x 末版）都已对新号/新设备大面积拒登（提示「当前微信版本过低」），3.9.10.27 更旧，处境只会更差。
+
+- **绕过手段存在但属猫鼠游戏**：① 用 CE 改内存中版本号骗过校验（每次登录需重做）；② 先在微信 4.x 登录一次再切回 3.9 的共存法；③ 版本伪装工具（本身即风控信号）。
+- **相对稳定的组合**：老号 + 老设备 + 持续在线不掉线。换设备、重装、异地登录触发重新校验时风险最高。
+- **趋势**：微信官方 Windows 端主推 4.1.x，3.9.12 仅保留 32 位下载并标注「不再更新」，旧版登录校验持续收紧——该路线处于倒计时状态，需按「还能跑多久」而非「能不能跑」来规划。
+
+## 五、同类开源工具全景（20+ 项目，7 类）
+
+### 5.1 Windows PC Hook（DLL 注入，绑 3.9.x）
+
+功能最全、消息回调最完整的路线，全部受旧版登录窗口制约。
+
+| 项目 | 微信版本 | 状态 | 备注 |
+|---|---|---|---|
+| WeChatFerry（lich0821） | 3.9.12.x | ✅ 活跃（v39.5.x） | 约 6.4k★；真回调非轮询；Python/Go/Java SDK；推荐主选 |
+| wxhelper（ttttupup） | 3.9.8.25 | ⚠️ 一般 | DLL 注入 + HTTP 19088；版本较旧 |
+| jwping/wxbot | 3.9.7~3.9.8 | ⚠️ 一般 | wxhelper 封装 |
+| wechaty-puppet-xp | 3.9.10.27 | ❌ 停更 | 近期仅 README 修正；消息偶发发送失败、群成员列表不稳且无人修 |
+| WeChatAuto.SDK | 3.9 + 4.x 共存 | ➖ 小众 | 其 4.x/3.9 共存绕过思路可关注 |
+
+### 5.2 UI 自动化 / RPA（无注入，风控最低）
+
+通过 Windows UIAutomation 读控件模拟人工操作，不碰进程内存。消息监听靠盯界面，完整性与实时性弱于 hook；是唯一已跟进微信 4.0 的免费路线。
+
+| 项目 | 微信版本 | 状态 | 备注 |
+|---|---|---|---|
+| wxauto / wxauto4（cluic） | 3.9.x / 4.0.5 | ✅ 活跃 | 另有付费增强版 wxautox4、wxauto-mcp |
+| wechat-automation-api | 4.0+ | ➖ 小众 | Flask + UIA 封装 HTTP，偏发送 |
+| GoodWeBot | RPA | ➖ 小众 | 偏 AI 机器人，归档相关性低 |
+
+### 5.3 Web 网页协议（排雷项）
+
+itchat、wechat4u、wechaty-puppet-wechat、Hanson/vbot。腾讯自 2017 年起限制网页版登录，绝大多数账号无法使用，列出仅为避免重复踩坑。
+
+### 5.4 iPad / Pad 协议（第三方服务）
+
+| 项目 | 状态 | 备注 |
+|---|---|---|
+| PadLocal | ❌ 渠道失效 | 付费 token 无法购买（本次调研起因） |
+| GeweChat | ❌ 停维 | 2025 年起无法登录 |
+| SimplePad | ⚠️ 存续 | 较新付费 wechaty puppet，含朋友圈 API |
+| dow-ipad-859 | ➖ 小众 | 859 版协议 + dify-on-wechat 集成 |
+
+### 5.5 Mac 端 Hook
+
+weixin-macos（frida，Mac 微信 4.1.6.47，OneBot 风格）。Mac 微信 4.x 逆向比 Windows 活跃，但生态规模远小，仅在有 Mac 设备时作为留意项。
+
+### 5.6 企业微信 Hook 与官方 API
+
+ntwork（Python，部分归档、社区 fork 维护）、vworkApi（HTTP 封装）。若业务可迁移企微，**企微官方会话存档 API**（付费、需客户知情）是唯一合规路径，也是远期正式方案的候选。
+
+### 5.7 本地数据库解密 / 聊天记录导出（归档最直接相关）
+
+> **本轮最重要的新发现**：微信 PC 客户端将聊天记录存储为本地加密 SQLite 库；此类工具从内存提取密钥并解密，可直接导出**历史**消息——正好补上 hook 只能收实时新消息的短板。
+
+| 项目 | 微信版本 | 说明 |
+|---|---|---|
+| PyWxDump | 3.x | 内存取密钥 + 解密 SQLite，带 Web 界面，一键解密已登录微信 |
+| WeChatMsg / 留痕（LC044） | 3.x | 解析导出 HTML/CSV、年度总结等数据分析 |
+| WeChatDataAnalysis | **4.x** | 较新，支持新版解密、导出、朋友圈 |
+| DbkeyHook（gzygood） | 4.0.3.39+ | DLL 替换（mmmojo_64.dll）方式提取数据库密钥 |
+
+### 5.8 上层框架（消费上述通道，非接入层）
+
+chatgpt-on-wechat（29.8k★，支持 wcferry 通道）、dify-on-wechat、LangBot（多平台多渠道）、NGCBot（基于 WCF）、智能微秘书、wechatbot-webhook。归档平台自研接入层时无需依赖，但可作为 WCF 能力完备性的旁证。
+
+## 六、WeChatFerry 靠谱性专项评估
+
+「资料简陋」是 README 风格造成的印象（逆向合规灰区项目普遍在文档上克制），实际证据链如下：
+
+- **持续发版**：2026 年 7 月仓库仍有更新，v39.5.x 已支持微信 3.9.12.x，是 hook 方案中跟版本跟得最新的。
+- **版本对齐机制**：版本号 w.x.y.z（w=微信大版本、x=小版本、y=框架版本、z=客户端版本），匹配关系清晰可查。
+- **生态背书**：chatgpt-on-wechat（29.8k★）官方支持 wcferry 通道，dify-on-wechat、NGCBot、LangBot 等以其为微信渠道底座。
+- **文档实际存在**：腾讯云开发者社区有 WeChatFerry FAQ（v39.0.14），看雪论坛有原理逆向分析，博客园/CSDN 有大量实操教程。
+
+> **诚实的另一面**：个人维护的开源逆向项目——无 SLA、无商业保障，同样困于「微信 3.9.x 登录窗口」这一死穴，暂不支持微信 4.0。「靠谱」的准确定义是同类中最不糟糕的选择，而非商业级服务。
+
+## 七、风险评估汇总
+
+| 风险 | 等级 | 说明与对策 |
+|---|---|---|
+| 旧版登录窗口关闭 | 高 | 3.9.x 被逐步拒登，窗口倒计时。对策：P0 实测目标账号可登录性；架构上准备 DB 解密为主 + wxauto4 的降级形态 |
+| 封号风险 | 中 | hook 违反微信用户协议。归档场景以「收」为主、发送行为克制，风险相对可控；客户经营号慎用，验证一律用小号 |
+| 维护断供 | 中 | 全部为个人开源项目。对策：锁定版本组合（微信版本 + 框架版本）离线留存，不追新 |
+| 数据完整性 | 中 | hook 只有接入后的增量，无历史。对策：本地库解密补历史，双轨互为校验 |
+| 合规 | 中 | 非官方接入，正式商用有合规瑕疵。对策：远期迁企微官方会话存档 API（唯一合规路径，需客户知情） |
+
+## 八、推荐架构：双轨归档
+
+**推荐方案**：同一台 Windows 机器、同一个登录客户端，两路数据汇入同一存储（SQLite → 归档平台）：
+
+- **主轨 A（实时增量）**：WeChatFerry hook 消息回调 → 平台；
+- **主轨 B（历史回溯）**：本地库解密（PyWxDump / WeChatDataAnalysis）→ 平台；
+- **降级预案**：3.9.x 登录窗口关闭后，转「DB 解密为主 + wxauto4（微信 4.0.5，无注入）辅助」；
+- **远期合规**：业务规模化后迁企微官方会话存档 API。
+
+不走 Wechaty 抽象层的理由：可用协议只剩一条，抽象价值趋零，反而多依赖一层（puppet-xp 停更 / puppet-wcferry 桥停滞）。直接对接 WCF SDK，减少中间层故障面。
+
+## 九、下一步：P0 验证清单
+
+| # | 动作 | 通过标准 |
+|---|---|---|
+| 1 | Windows 机安装微信 3.9.12（32 位官方保留版，关闭自动更新） | 可安装、可运行 |
+| 2 | **小号**登录测试；若提示版本过低，尝试「4.x 先登录一次再切回 3.9」 | 能扫码登录（此步失败则主轨降级，见第八节） |
+| 3 | 部署 WeChatFerry v39.5.x（版本与微信严格匹配），跑通「登录 → 消息回调 → 落 SQLite」 | 收发消息回调完整、字段满足归档需要 |
+| 4 | 同机用 PyWxDump 做一次本地库解密导出 | 历史消息可导出、可与回调数据对齐 |
+| 5 | 持续挂机 1~2 周 | 登录不掉线、回调无长时间中断 |
+
+验证成本约半天起步 + 1~2 周观察期，可同时回答「登录窗口是否仍开」与「回调数据是否满足归档完整性」两个生死问题。
+
+## 十、资料来源（节选）
+
+- https://github.com/lich0821/WeChatFerry（主仓库）｜ https://developer.cloud.tencent.com（WeChatFerry FAQ v39.0.14）｜ https://bbs.kanxue.com（原理逆向分析）
+- https://github.com/wechaty/wechaty-puppet-xp ｜ https://wechaty.js.org（Puppet Providers 文档）
+- https://github.com/ttttupup/wxhelper ｜ https://github.com/cluic/wxauto 与 wxauto4 ｜ https://github.com/gzygood/DbkeyHook
+- https://github.com/LC044/WeChatMsg ｜ https://lifearchiveproject.github.io/WeChatDataAnalysis
+- https://github.com/hanfangyuan4396/dify-on-wechat ｜ https://github.com/langbot-app/LangBot ｜ https://github.com/mrrhq/wechaty-puppet-wcferry
+- https://www.zhihu.com（PC微信 3.9.12 版本过低讨论；微信 AI 机器人全系列方案）｜ https://windows.weixin.qq.com（官方下载页）｜ https://gby.ai（企微个微机器人调研）
+
+---
+
+*微信客户端本地化接入与客户信息归档 · 技术调研报告 v1.0 · 2026-09-21 · 内部资料，仅供评估参考。文中涉及的非官方接入方案均存在违反微信用户协议的风险，正式商用前需完成合规评估。*

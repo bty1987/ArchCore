@@ -1,0 +1,29 @@
+# 采集端与本地数据（绝不入库：含会话数据与密钥）
+*.db
+*.db.decrypted
+*.sqlite
+*.sqlite3
+data/
+media/
+exports/
+
+# 密钥与配置
+.env
+*.key
+config/local.*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+
+# IDE / OS
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store
