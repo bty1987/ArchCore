@@ -15,6 +15,7 @@
 | [docs/wechat-local-access-survey.md](docs/wechat-local-access-survey.md) | 技术调研报告（接入路线、同类工具全景、风险评估） |
 | [docs/wechat-archive-prd.md](docs/wechat-archive-prd.md) | PRD v0.1（功能需求、预警规则、版本规划、验收标准） |
 | [docs/system-design.md](docs/system-design.md) | 系统设计文档 v0.1（总体架构、技术选型、数据模型、关键流程、设计决策记录） |
+| [docs/development-plan.md](docs/development-plan.md) | 代码工程规划 v0.1（仓库结构、工程规范、迭代任务拆解 M0/MVP/V1、测试策略） |
 | [docs/product-scenarios.md](docs/product-scenarios.md) | 应用场景与商业定位分析（八类客户问题、七大应用场景、售前表达、产品优先级） |
 
 ## 目录规划
