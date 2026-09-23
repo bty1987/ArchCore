@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| 文档版本 | v0.1 |
+| 文档版本 | v0.2 |
 | 日期 | 2026-09-21 |
-| 状态 | 初稿（待评审） |
+| 状态 | v0.2（评审修订） |
 | 上游文档 | [PRD v0.1](wechat-archive-prd.md) · [技术调研报告](wechat-local-access-survey.md) |
 | 密级 | 内部 |
 
@@ -16,7 +16,7 @@
 
 **原则**：
 
-1. **主轨优先**：架构围绕「本地 DB 解密」设计为不依赖任何登录窗口的主干；实时 hook（WCF）作为可整体摘除的增强模块——M0 验证失败不影响产品核心价值；
+1. **主轨优先**：架构围绕「本地 DB 解密」设计——不依赖 3.9.x 旧版登录窗口（可随工具生态切 4.x），但依赖客户端保持登录在线（掉线期间消息不落库，两轨一同断流）；实时 hook（WCF）作为可整体摘除的增强模块——M0 验证失败不影响产品核心价值；
 2. **单机起步**：MVP 阶段全部组件部署在一台 Windows 主机，零运维；接口按拆分预留（采集端与平台走 HTTP），后续平台可迁 Linux；
 3. **拒绝过度设计**：不上消息队列、不上微服务、不上 ES——SQLite FTS5 覆盖检索，APScheduler 覆盖调度，单体覆盖一切；
 4. **数据安全红线**：会话数据与密钥类文件一律不进 git（.gitignore 已拦截），导出操作全部审计。
@@ -67,7 +67,7 @@
 | 采集端 | Python 3.10+ | PyWxDump / WeChatDataAnalysis / wcferry SDK 均为 Python 生态，无第二选择 |
 | 调度 | APScheduler | 单进程内覆盖定时增量、预警巡检、聚合任务，免额外组件 |
 | 服务端 | FastAPI + SQLAlchemy | 与采集端同语言，一套技术栈两个人力成本减半；自动生成 OpenAPI 文档 |
-| 存储 | SQLite（WAL 模式）+ FTS5 | 10 万级消息量完全够用；FTS5 提供中文全文检索（unicode61 分词 + 按需二元分词）；零部署 |
+| 存储 | SQLite（WAL 模式）+ FTS5 | 10 万级消息量完全够用；中文检索直接按 **trigram 分词**设计（SQLite 3.34+ 原生支持；unicode61 对中文等于整段单 token，不可用）；零部署 |
 | 认证 | JWT + RBAC（内置 admin/manager/sales 三角色） | 内网场景够用，不引入 OAuth 复杂度 |
 | 前端 | Vue3 + Vite + Element Plus + ECharts | 管理台成熟组合；主题定制遵循团队 UI 偏好（大圆角、柔和阴影、pill 控件、微交互） |
 | 图表 | ECharts | 趋势图/词云/时段热力开箱即用 |
@@ -114,11 +114,12 @@ alert_rule ──< alert ──< notify_record
 | media_path | TEXT 可空 | media/ 下的相对路径 |
 | media_meta | JSON 可空 | 大小/时长/文件名等 |
 | ts | DATETIME | 消息时间（取微信原始时间戳） |
-| fingerprint | TEXT UNIQUE | 去重指纹：sha256(wx_id + sender + ts + content_hash) |
+| svr_id | TEXT UNIQUE 可空 | 微信原生消息 ID（MsgSvrID，解密库与 WCF 回调均可取到）；去重第一优先级 |
+| fingerprint | TEXT UNIQUE | 兜底去重指纹：sha256(wx_id + sender + ts + content_hash)，仅 svr_id 缺失时使用；同秒同内容存在理论碰撞，接受（v0.2：不再作主键） |
 | source | TEXT | `decrypt` / `wcf`，双轨数据溯源与对账 |
 | raw | JSON | 原始结构，保底可回放 |
 
-索引：`session_id + ts` 复合、`fingerprint` 唯一、`content` FTS5 虚表（外部内容表模式，随 message 增删同步）。媒体文件不入库，存 `media/` 目录（按 session_id 分桶），经鉴权接口下发。
+索引：`session_id + ts` 复合、`svr_id` 与 `fingerprint` 唯一（去重第一/第二优先级）、`content` FTS5 虚表（trigram 分词，外部内容表模式，随 message 增删同步）。媒体文件不入库，存 `media/` 目录（按 session_id 分桶），经鉴权接口下发。
 
 **其余表（简）**
 
@@ -136,11 +137,12 @@ alert_rule ──< alert ──< notify_record
 | sync_task | type, status, stats(JSON), log | 采集任务历史（F1-5 监控数据源） |
 | audit_log | user_id, action, target, detail | 全操作审计（导出必记） |
 
-### 4.3 消息指纹与双轨去重
+### 4.3 消息去重与双轨对账（v0.2 修订）
 
-- 同一条消息可能被解密轨和 WCF 轨各采一次：以 `fingerprint` 唯一约束 + `INSERT OR IGNORE` 幂等入库，`source` 保留先到者；
+- 去重第一优先级为**原生 svr_id**（MsgSvrID 全局唯一，两轨均可取到）：唯一约束 + `INSERT OR IGNORE` 幂等入库，`source` 保留先到者；svr_id 缺失时回退 fingerprint（合成指纹同秒同内容会误杀合法消息，仅作兜底）；
+- **指纹仅在 server 端计算**（ingest 内）：collector 不实现指纹算法——server 有唯一约束兜底，collector 侧预去重只是优化；双端各自实现靠单测锁对齐是漂移隐患（见 D8）；
 - 对账视图（F1-4）：按 session 统计双轨条数差异，差异超阈值告警给系统管理员；
-- 解密轨以 ts 为准（微信原始时间戳），WCF 轨回调时间仅作参考。
+- 解密轨以 ts 为准（微信原始时间戳），WCF 轨回调时间仅作参考；两轨 svr_id 可对齐性在 M0-03 确认。
 
 ## 5. 模块设计
 
@@ -154,7 +156,9 @@ collector/
 │   └── incr_sync.py         # 定时增量解密（默认每小时）
 ├── wcf_worker/              # 实时轨（feature flag 控制，可整体摘除）
 │   └── callback.py          # wcferry 消息回调 → 标准化
-├── transform/               # 统一变换：原始结构 → 标准 message + fingerprint
+├── transform/               # 统一变换：白名单过滤 → 原始结构 → 标准 message
+│   ├── filter.py            # 会话白名单过滤（F1-6：非业务会话不出微信数据目录）
+│   └── normalize.py         # 原始结构标准化（指纹由 server 端计算）
 ├── sender.py                # 批量上报 server（500 条/批，失败重试+本地暂存）
 └── scheduler.py             # APScheduler 入口
 ```
@@ -163,7 +167,7 @@ collector/
 
 - **单一出站通道**：两条轨产出的消息都经 transform 归一后走同一上报接口，服务端无感知来源差异；
 - **断点续传**：每会话记录已同步水位（最后消息 ts），增量只取水位之后；全量导入支持按会话分片、失败重跑；
-- **降级联动**：wcf_worker 启动失败/掉线超过阈值 → 自动切回解密轨分钟级加密增量（降级预案已在 PRD 第 7/10 节定义）；
+- **降级联动（v0.2 口径修正）**：仅在「WCF 故障但微信客户端存活」的窄场景下由解密轨补增量，且解密轨增量周期为**小时级**（整库复制+解密是 GB 级操作，分钟级不可行）；若掉线源于微信进程/登录态死亡，两轨一同中断，走运维 Runbook 扫码重登；
 - **发送隔离**：F8 代发能力做成独立模块 + 配置开关，**默认关闭**，与采集代码物理分离，永不自动触发。
 
 ### 5.2 server 平台服务端
@@ -173,7 +177,7 @@ server/app/
 ├── api/            # REST 路由（见第 6 节）
 ├── models/         # SQLAlchemy 模型 + FTS5 触发器
 ├── services/
-│   ├── ingest.py       # 批量入库 + 指纹去重 + sender_type 判定
+│   ├── ingest.py       # 批量入库 + svr_id/指纹去重（指纹仅此端计算）+ sender_type 判定
 │   ├── mapping.py      # 客户/群/联系人映射
 │   ├── analysis.py     # 聚合、健康度、检索
 │   ├── alert_engine.py # 规则评估（触发型 + 巡检型）
@@ -244,6 +248,7 @@ M0/MVP：单机 all-in-one（WeChat + collector + server + SQLite + web 静态�
 | D5 | WCF 轨做成可摘除模块 + 降级联动 | 全押 WCF（M0 登录验证存在失败可能，架构不能押在最脆弱环节） |
 | D6 | 发送能力独立模块 + 默认关闭 | 与采集同模块（封号风险隔离，防止误触发） |
 | D7 | 分析读日聚合表，不扫明细 | 实时聚合（仪表盘每次全表扫，10 万级后不可接受） |
+| D8 | 去重以原生 svr_id 为主、指纹兜底，且指纹仅 server 端计算 | 双端各实现指纹靠单测锁对齐（漂移隐患）；合成指纹作唯一主键（同秒同内容误杀合法消息） |
 
 ## 9. 安全设计
 
@@ -259,11 +264,11 @@ M0/MVP：单机 all-in-one（WeChat + collector + server + SQLite + web 静态�
 
 | 里程碑 | 本设计中的交付物 |
 |---|---|
-| M0 技术验证 | collector/decrypt_worker/full_import.py 原型（PyWxDump 跑通 + 字段映射表确认）；wcf_worker 最小回调 demo；产出「字段质量评估」结论回填 PRD/本设计 |
+| M0 技术验证 | collector/decrypt_worker/full_import.py 原型（PyWxDump 跑通 + 字段映射表确认）；wcf_worker 最小回调 demo（含 32 位匹配确认）；**4.x 解密兜底验证（WeChatDataAnalysis）**；群成员可得性与撤回/红包残留抽查（调研报告第九节 #6~#9）；产出「字段质量评估」结论回填 PRD/本设计 |
 | MVP | 全部 P0 需求对应模块：ingest + mapping + 会话浏览器 + 活跃度分析 + 基础页面；单机部署脚本 |
 | V1 | wcf_worker 正式启用（视 M0 结论）+ 触发型/巡检型预警 + 通知渠道 + 健康度 + RBAC 完整版 |
 | V2 | AI 摘要（F4-6，模型选型届时评估）、语音转写、发送模块（谨慎决策） |
 
 ---
 
-*ArchCore 系统设计文档 v0.1 · 2026-09-21 · 内部资料。设计遵循调研报告结论：主轨不依赖登录窗口，实时轨可摘除。*
+*ArchCore 系统设计文档 v0.2 · 2026-09-21 · 内部资料。设计遵循调研报告结论：主轨不依赖 3.9.x 旧版登录窗口（但依赖客户端登录态），实时轨可摘除。*

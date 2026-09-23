@@ -12,30 +12,46 @@
 
 | 文档 | 说明 |
 |---|---|
-| [docs/wechat-local-access-survey.md](docs/wechat-local-access-survey.md) | 技术调研报告（接入路线、同类工具全景、风险评估） |
-| [docs/wechat-archive-prd.md](docs/wechat-archive-prd.md) | PRD v0.1（功能需求、预警规则、版本规划、验收标准） |
-| [docs/system-design.md](docs/system-design.md) | 系统设计文档 v0.1（总体架构、技术选型、数据模型、关键流程、设计决策记录） |
-| [docs/development-plan.md](docs/development-plan.md) | 代码工程规划 v0.1（仓库结构、工程规范、迭代任务拆解 M0/MVP/V1、测试策略） |
-| [docs/ops-promotion-plan.md](docs/ops-promotion-plan.md) | 运维与推广规划 v0.1（监控/备份/版本冻结/Runbook/账号资产、三阶段推广路径/定价/交付流程） |
-| [docs/outbound-push-plan.md](docs/outbound-push-plan.md) | 主动推送消息方案 v0.1（外发风险分级、行为约束规则体系、发送工单管道、自动熔断、灰度路径） |
-| [docs/product-scenarios.md](docs/product-scenarios.md) | 应用场景与商业定位分析（八类客户问题、七大应用场景、售前表达、产品优先级） |
+| [docs/wechat-local-access-survey.md](docs/wechat-local-access-survey.md) | 技术调研报告 v1.1（接入路线、同类工具全景、风险评估、9 项 P0 验证清单） |
+| [docs/wechat-archive-prd.md](docs/wechat-archive-prd.md) | PRD v0.2（功能需求、预警规则、版本规划、验收标准） |
+| [docs/system-design.md](docs/system-design.md) | 系统设计文档 v0.2（总体架构、技术选型、数据模型、关键流程、设计决策记录） |
+| [docs/development-plan.md](docs/development-plan.md) | 代码工程规划 v0.2（仓库结构、工程规范、迭代任务拆解 M0/MVP/V1、测试策略） |
+| [docs/ops-promotion-plan.md](docs/ops-promotion-plan.md) | 运维与推广规划 v0.2（监控/备份/版本冻结/Runbook/账号资产、三阶段推广路径/定价/交付流程） |
+| [docs/outbound-push-plan.md](docs/outbound-push-plan.md) | 主动推送消息方案 v0.2（默认永久只收不发；外发风险分级、工单管道与熔断的实施预案） |
+| [docs/compliance-plan.md](docs/compliance-plan.md) | 合规方案 v0.1（第三方个人信息告知、数据最小化、权限收敛、合同责任划分） |
+| [docs/test-plan.md](docs/test-plan.md) | 测试方案 v1.0（八层测试体系、46 个自动化用例清单、性能与冒烟、M0 真机验证项） |
+| [docs/product-scenarios.md](docs/product-scenarios.md) | 应用场景与商业定位分析（愿景素材，见文首交付边界说明） |
 
 ## 目录规划
 
 ```
 ArchCore/
-├── docs/       # 产品与调研文档
-├── server/     # 平台服务端（规划中）
-├── collector/  # 采集端：DB 解密 + WCF 实时回调（规划中）
-└── web/        # 管理台前端（规划中）
+├── docs/       # 产品与调研文档（9 份，见索引）
+├── server/     # 平台服务端：FastAPI + SQLAlchemy + SQLite(WAL+FTS5) + alembic + APScheduler
+├── collector/  # 采集端：解密适配（fixture/pywxdump）+ 白名单过滤 + 批量上报/断点续传 + WCF 可选
+├── web/        # 管理台前端：Vue3 + Element Plus + ECharts（vite build → dist/）
+├── deploy/     # 部署：单机手册 / 一键备份 / systemd 单元
+└── scripts/    # gen-fixtures 合成数据 · perf_check 10 万条性能验证
 ```
+
+## 快速开始（开发/演示）
+
+```bat
+python -m venv .venv && .venv\Scripts\pip install -e server -e collector
+python scripts\gen-fixtures.py            # 生成脱敏合成数据（红线：真实数据不入仓库）
+cd server && ..\.venv\Scripts\python -m uvicorn archcore_server.main:app --port 8000
+cd web && npm install && npm run dev      # 管理台 http://127.0.0.1:5173（admin / admin123456）
+python scripts\perf_check.py              # 性能验收：10 万条检索 <2s
+```
+
+测试与质量门禁见 [docs/test-plan.md](docs/test-plan.md)（当前：server 33 + collector 13 全绿，ruff 0 告警）。
 
 ## 里程碑
 
-- **M0 技术验证**（1 周）：微信 3.9.12 登录验证、WCF 回调链路、PyWxDump 历史导出字段质量评估 → 详见 PRD 第九节 P0 清单
-- **MVP**（2~4 周）：历史导入、群→客户映射、会话浏览器、活跃度分析、管理台基础页面
-- **V1**（+4 周）：实时轨、预警引擎、通知渠道、健康度模型
+- **M0 技术验证**（1 周）：9 项验证——3.9.12 登录、WCF 回调链路与 32 位匹配、PyWxDump 字段质量、4.x 解密兜底、群成员可得性、撤回/红包残留口径 → 详见调研报告第九节（⏳ 需真实微信环境）
+- **MVP**（4~6 周）：历史导入（白名单范围）、群→客户映射、会话浏览器、活跃度分析、管理台基础页面（✅ 代码已落地，见 test-plan）
+- **V1**（+6 周）：实时轨、预警引擎、通知渠道、健康度模型（预警/通知/健康度核心已随 MVP 代码就位）
 
 ## 风险提示
 
-本项目采用的非官方微信接入方案存在违反微信用户协议与封号风险（详见调研报告），仅限内部客户管理用途，正式商用前需完成合规评估。
+本项目采用的非官方微信接入方案存在违反微信用户协议与封号风险（详见调研报告），仅限内部客户管理用途；归档涉及客户方成员（第三方个人信息主体）的会话数据，正式商用前须完成[合规方案](docs/compliance-plan.md)所列评估项。
