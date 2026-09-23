@@ -1,1 +1,0 @@
-archcore_collector

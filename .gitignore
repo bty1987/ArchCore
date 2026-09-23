@@ -27,3 +27,7 @@ dist/
 .vscode/
 Thumbs.db
 .DS_Store
+
+# Python 构建产物
+*.egg-info/
+build/
