@@ -1,0 +1,22 @@
+[Unit]
+Description=ArchCore platform server (FastAPI)
+After=network.target
+
+[Service]
+Type=simple
+# 部署路径按实际环境调整
+WorkingDirectory=/opt/archcore/server
+Environment=ARCHCORE_DB_URL=sqlite:////opt/archcore/data/archcore.db
+Environment=ARCHCORE_MEDIA_DIR=/opt/archcore/data/media
+EnvironmentFile=-/opt/archcore/server/.env
+ExecStart=/opt/archcore/venv/bin/uvicorn archcore_server.main:app --host 0.0.0.0 --port 8000 --workers 2
+Restart=always
+RestartSec=5
+
+# 安全基线
+NoNewPrivileges=true
+ProtectSystem=full
+ReadWritePaths=/opt/archcore/data
+
+[Install]
+WantedBy=multi-user.target
