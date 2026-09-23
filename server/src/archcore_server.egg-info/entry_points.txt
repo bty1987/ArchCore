@@ -1,0 +1,2 @@
+[console_scripts]
+archcore-server = archcore_server.main:run
