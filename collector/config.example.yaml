@@ -1,0 +1,24 @@
+# ArchCore 采集端配置示例：复制为 config.yaml 后填写真实值（config.yaml 不入 git）
+
+server_base_url: http://127.0.0.1:8000
+server_ingest_token: change-me-collector-token   # 与 server ARCHCORE_COLLECTOR_TOKEN 一致
+collector_wxid: "wxid_xxxxx"                     # 采集号自身 wxid（sender_type=me 判定）
+
+state_db: ./data/collector_state.db
+
+source:
+  type: fixture            # fixture（开发/演示）| pywxdump（生产主轨）
+  db_dir: ""               # pywxdump 模式：解密库目录
+  fixture_path: ./data/fixture_wechat.db
+
+whitelist:                 # F1-6 合规边界：白名单外数据不出微信目录
+  groups: []               # 群 wx_id 精确名单（xxx@chatroom）
+  group_name_patterns: []  # 群名正则，如 ['^ABC项目']
+  allow_dm: true           # 采集号自身的客户单聊
+
+schedule:
+  incr_minutes: 60         # 增量周期（小时级准实时）
+  flush_seconds: 30
+
+wcf_enabled: false         # 实时轨（依赖 M0 验证：3.9.12 登录 + 32 位匹配）
+send_enabled: false        # 永久 false：归档系统只收不发
