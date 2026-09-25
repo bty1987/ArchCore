@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import * as echarts from "echarts";
 import { dashboard } from "../api/client";
 
 const data = ref<any>({});
 const chartEl = ref<HTMLDivElement>();
+const typeTotal = computed(
+  () =>
+    Object.values(data.value.type_distribution || {}).reduce(
+      (a: number, b: unknown) => a + Number(b),
+      0
+    ) as number
+);
 
 onMounted(async () => {
   const { data: d } = await dashboard();

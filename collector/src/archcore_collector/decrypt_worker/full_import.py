@@ -9,17 +9,19 @@ import logging
 
 from ..sources import build_source
 from ..state import StateStore
-from ..transform.filter import WhitelistFilter
 from ..transform.normalize import normalize
+from ..whitelist_sync import fetch_effective_whitelist, report_inventory
 
 log = logging.getLogger(__name__)
 
 
 def run_full_import(settings, sender, state: StateStore) -> dict:
     source = build_source(settings.source)
-    flt = WhitelistFilter(settings.whitelist)
+    flt = fetch_effective_whitelist(settings)
     stats = {"sessions": 0, "messages": 0, "filtered": 0}
-    for sess in source.list_sessions():
+    all_sessions = source.list_sessions()
+    report_inventory(settings, all_sessions)
+    for sess in all_sessions:
         if not flt.allow(sess.wx_id, sess.type, sess.name):
             stats["filtered"] += 1
             continue

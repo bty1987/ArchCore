@@ -10,13 +10,23 @@ from sqlalchemy.orm import Session
 
 from ..core.config import LEVEL_ORDER, get_settings
 from ..core.security import current_user, get_identity
-from ..models import Alert, AlertRule, AuditLog, NotifyChannel, SyncTask
+from ..models import (
+    Alert,
+    AlertRule,
+    AuditLog,
+    ChatSession,
+    NotifyChannel,
+    SyncTask,
+    WhitelistRule,
+)
 from ..schemas import (
     AlertHandleIn,
     AlertOut,
     AlertRuleIn,
+    AllowAllIn,
     IngestBatchIn,
     IngestBatchOut,
+    InventoryIn,
     NotifyChannelIn,
     SyncTaskIn,
 )
@@ -251,7 +261,123 @@ def test_channel(
     return {"status": status_, "error": error}
 
 
+# ---------- 会话白名单（服务端管控，采集端每轮拉取） ----------
+
+
+def _allow_all(db: Session) -> bool:
+    from ..models import AppSetting
+
+    row = db.get(AppSetting, "whitelist_allow_all")
+    return bool(row and row.value.get("enabled"))
+
+
+@router.get("/whitelist")
+def get_whitelist(identity: dict = Depends(manager_identity), db: Session = Depends(get_session)):
+    current_user(identity, db)
+    rules = db.scalars(select(WhitelistRule).order_by(WhitelistRule.id.desc())).all()
+    return {
+        "allow_all": _allow_all(db),
+        "rules": [
+            {
+                "id": r.id,
+                "wx_id": r.wx_id,
+                "stype": r.stype,
+                "name": r.name,
+                "note": r.note,
+                "enabled": r.enabled,
+            }
+            for r in rules
+        ],
+    }
+
+
+@router.put("/whitelist/allow-all")
+def set_allow_all(
+    body: AllowAllIn, identity: dict = Depends(manager_identity), db: Session = Depends(get_session)
+):
+    from ..models import AppSetting
+
+    row = db.get(AppSetting, "whitelist_allow_all")
+    if row is None:
+        row = AppSetting(key="whitelist_allow_all")
+        db.add(row)
+    row.value = {"enabled": body.enabled}
+    db.add(
+        AuditLog(
+            user_id=identity["uid"], action="whitelist_allow_all", detail={"enabled": body.enabled}
+        )
+    )
+    db.commit()
+    return {"allow_all": body.enabled}
+
+
+@router.post("/whitelist")
+def add_whitelist_rule(
+    body: dict, identity: dict = Depends(manager_identity), db: Session = Depends(get_session)
+):
+    wx_id = str(body.get("wx_id", "")).strip()
+    stype = body.get("stype", "group")
+    if not wx_id:
+        raise HTTPException(422, "wx_id 必填")
+    if stype not in ("group", "dm"):
+        raise HTTPException(422, "stype 须为 group/dm")
+    rule = db.scalar(select(WhitelistRule).where(WhitelistRule.wx_id == wx_id))
+    if rule is None:
+        rule = WhitelistRule(wx_id=wx_id, stype=stype)
+        db.add(rule)
+    rule.stype = stype
+    rule.name = str(body.get("name", "")) or rule.name
+    rule.note = str(body.get("note", "")) or rule.note
+    rule.enabled = bool(body.get("enabled", True))
+    db.add(AuditLog(user_id=identity["uid"], action="whitelist_add", target=wx_id))
+    db.commit()
+    return {"id": rule.id, "wx_id": rule.wx_id}
+
+
+@router.delete("/whitelist/{rule_id}")
+def delete_whitelist_rule(
+    rule_id: int, identity: dict = Depends(manager_identity), db: Session = Depends(get_session)
+):
+    rule = db.get(WhitelistRule, rule_id)
+    if rule:
+        db.delete(rule)
+        db.add(AuditLog(user_id=identity["uid"], action="whitelist_delete", target=rule.wx_id))
+        db.commit()
+    return {"deleted": rule_id}
+
+
 # ---------- 采集上报（collector 专用，独立 token） ----------
+
+
+@router.get("/ingest/whitelist")
+def ingest_whitelist(
+    _tok: None = Depends(require_collector_token), db: Session = Depends(get_session)
+):
+    """采集端每轮同步前拉取生效白名单。"""
+    rules = db.scalars(select(WhitelistRule).where(WhitelistRule.enabled.is_(True))).all()
+    return {
+        "allow_all": _allow_all(db),
+        "groups": [r.wx_id for r in rules],  # 群与单聊 wx_id 通用（语义见 transform/filter）
+    }
+
+
+@router.post("/ingest/sessions")
+def ingest_sessions(
+    body: InventoryIn,
+    _tok: None = Depends(require_collector_token),
+    db: Session = Depends(get_session),
+):
+    """采集端上报发现的会话清单（含尚无消息的群），供白名单页与待认领使用。"""
+    known = 0
+    for item in body.sessions:
+        obj = db.scalar(select(ChatSession).where(ChatSession.wx_id == item.wx_id))
+        if obj is None:
+            db.add(ChatSession(wx_id=item.wx_id, type=item.type, name=item.name))
+            known += 1
+        elif item.name and item.name != obj.name:
+            obj.name = item.name
+    db.commit()
+    return {"known": known, "received": len(body.sessions)}
 
 
 @router.post("/ingest/messages", response_model=IngestBatchOut)

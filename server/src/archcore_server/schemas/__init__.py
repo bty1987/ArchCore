@@ -179,3 +179,25 @@ class KeywordIn(BaseModel):
 class SettingIn(BaseModel):
     key: str
     value: dict
+
+
+class WhitelistRuleIn(BaseModel):
+    wx_id: str
+    stype: str = "group"  # group / dm
+    name: str = ""
+    note: str = ""
+    enabled: bool = True
+
+
+class AllowAllIn(BaseModel):
+    enabled: bool
+
+
+class InventorySessionIn(BaseModel):
+    wx_id: str
+    type: str = "group"
+    name: str = ""
+
+
+class InventoryIn(BaseModel):
+    sessions: list[InventorySessionIn] = Field(default_factory=list, max_length=2000)

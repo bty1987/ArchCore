@@ -228,7 +228,22 @@ def dashboard(db: Session) -> dict:
         db.scalar(select(func.count()).select_from(Alert).where(Alert.status == "pending")) or 0
     )
     last_sync = db.scalar(select(SyncTask).order_by(SyncTask.id.desc()).limit(1))
+    top_sessions = db.execute(
+        text(
+            "SELECT s.name, s.wx_id, s.type, SUM(md.total) AS total "
+            "FROM message_daily md JOIN chat_session s ON s.id = md.session_id "
+            "GROUP BY md.session_id ORDER BY total DESC LIMIT 5"
+        )
+    ).all()
+    type_dist = db.execute(
+        text("SELECT msg_type, COUNT(*) FROM message GROUP BY msg_type ORDER BY 2 DESC")
+    ).all()
     return {
+        "top_sessions": [
+            {"name": n or wx, "wx_id": wx, "type": t, "total": int(c or 0)}
+            for n, wx, t, c in top_sessions
+        ],
+        "type_distribution": {mt: int(cnt) for mt, cnt in type_dist},
         "total_customers": total_customers,
         "claimed_sessions": claimed,
         "unclaimed_sessions": unclaimed,

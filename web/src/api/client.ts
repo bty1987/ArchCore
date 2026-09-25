@@ -64,6 +64,13 @@ export const testChannel = (id: number) => api.post(`/notify-channels/${id}/test
 
 // —— 采集/管理 ——
 export const ingestHealth = () => api.get("/ingest/health");
+export const getWhitelist = () => api.get("/whitelist");
+export const setAllowAll = (enabled: boolean) =>
+  api.put("/whitelist/allow-all", { enabled });
+export const addWhitelistRule = (data: object) => api.post("/whitelist", data);
+export const deleteWhitelistRule = (id: number) => api.delete(`/whitelist/${id}`);
+export const reportInventory = (sessions: object[]) =>
+  api.post("/ingest/sessions", { sessions });
 export const listSyncTasks = () => api.get("/audit-logs"); // 采集任务历史复用审计视图入口
 export const listUsers = () => api.get("/users");
 export const createUser = (data: object) => api.post("/users", data);

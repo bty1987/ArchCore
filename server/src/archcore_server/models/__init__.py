@@ -249,6 +249,24 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = _dt()
 
 
+class WhitelistRule(Base):
+    """会话白名单规则（服务端管控，采集端每轮同步前拉取）。
+
+    groups 语义扩展：既允许群 wx_id 也允许单聊 wx_id（allow_dm=false 时可精确放行个别联系人）。
+    """
+
+    __tablename__ = "whitelist_rule"
+    __table_args__ = (UniqueConstraint("wx_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    wx_id: Mapped[str] = mapped_column(String(128))
+    stype: Mapped[str] = mapped_column(String(8))  # group / dm
+    name: Mapped[str] = mapped_column(String(128), default="")
+    note: Mapped[str] = mapped_column(String(256), default="")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = _dt()
+
+
 class AppSetting(Base):
     __tablename__ = "app_setting"
 
