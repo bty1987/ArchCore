@@ -81,3 +81,20 @@ def test_sync_task_and_health(client):
         "/api/v1/ingest/health", headers={"X-Collector-Token": "test-collector-token"}
     )
     assert health.json()["last_sync"]["type"] == "full_import"
+
+
+def test_ingest_health_dual_auth(client, admin_headers):
+    """/ingest/health 双通道：采集端 token 与用户 JWT 任一通过（管理台采集管理页依赖）。"""
+    # 用户 JWT 可访问
+    assert client.get("/api/v1/ingest/health", headers=admin_headers).status_code == 200
+    # 采集端 token 可访问
+    r = client.get("/api/v1/ingest/health", headers={"X-Collector-Token": "test-collector-token"})
+    assert r.status_code == 200
+    # 两者都没有 → 401
+    assert client.get("/api/v1/ingest/health").status_code == 401
+    # 采集 token 错误但 JWT 有效 → 200
+    r = client.get("/api/v1/ingest/health", headers={**admin_headers, "X-Collector-Token": "wrong"})
+    assert r.status_code == 200
+    # 写入端点不受影响：/ingest/messages 仍只认采集端 token
+    r = client.post("/api/v1/ingest/messages", json={"messages": []}, headers=admin_headers)
+    assert r.status_code == 401

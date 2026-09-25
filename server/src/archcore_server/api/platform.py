@@ -26,6 +26,7 @@ from ..services import notify as notify_svc
 from .deps import (
     get_session,
     manager_identity,
+    require_collector_or_user,
     require_collector_token,
     user_identity,
 )
@@ -304,7 +305,7 @@ def ingest_sync_task(
 
 @router.get("/ingest/health")
 def ingest_health(
-    _tok: None = Depends(require_collector_token), db: Session = Depends(get_session)
+    _tok: None = Depends(require_collector_or_user), db: Session = Depends(get_session)
 ):
     last = db.scalar(select(SyncTask).order_by(SyncTask.id.desc()).limit(1))
     msg_count = db.scalar(select(func.count()).select_from(_msg_table())) or 0

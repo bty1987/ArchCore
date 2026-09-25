@@ -8,6 +8,29 @@ import logging
 from .config import load_config
 
 
+def _report_sync_task(settings, task_type: str, stats: dict, ok: bool, log_text: str = "") -> None:
+    """同步结果上报（采集管理页的心跳数据源）；上报失败不影响采集本身。"""
+    import httpx
+
+    try:
+        httpx.post(
+            f"{settings.server_base_url}/api/v1/ingest/sync-tasks",
+            json={
+                "type": task_type,
+                "status": "success" if ok else "failed",
+                "stats": stats,
+                "log": log_text,
+            },
+            headers={
+                "X-Collector-Token": settings.server_ingest_token,
+                "X-Collector-Wxid": settings.collector_wxid,
+            },
+            timeout=10,
+        )
+    except httpx.HTTPError:
+        pass
+
+
 def run() -> None:
     parser = argparse.ArgumentParser(description="ArchCore 采集端")
     parser.add_argument("-c", "--config", default=None, help="配置文件路径（默认 ./config.yaml）")
@@ -29,10 +52,19 @@ def run() -> None:
         state = StateStore(settings.state_db)
         try:
             sender = Sender(httpx.Client(), settings, state)
-            if args.full:
-                print(run_full_import(settings, sender, state))
-            else:
-                print(run_incr_sync(settings, sender, state))
+            task_type = "full_import" if args.full else "incr_sync"
+            try:
+                stats = (
+                    run_full_import(settings, sender, state)
+                    if args.full
+                    else run_incr_sync(settings, sender, state)
+                )
+                print(stats)
+                _report_sync_task(settings, task_type, stats, ok=True)
+            except Exception as exc:  # 任务失败也要留心跳记录，供采集异常巡检发现
+                print(f"task failed: {exc}")
+                _report_sync_task(settings, task_type, {"error": str(exc)}, ok=False)
+                raise
             # 冲刷历史积压（断链期间的 outbox 遗留批次）：无新消息时 submit 不会被调用
             print({"outbox_flushed": sender.flush()})
         finally:
