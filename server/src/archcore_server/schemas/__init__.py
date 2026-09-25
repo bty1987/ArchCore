@@ -79,6 +79,7 @@ class MessageOut(BaseModel):
     ts: datetime
     recalled: bool
     source: str
+    tags: list[str] = []
 
     model_config = {"from_attributes": True}
 
@@ -191,6 +192,14 @@ class WhitelistRuleIn(BaseModel):
 
 class AllowAllIn(BaseModel):
     enabled: bool
+
+
+class MessageTagIn(BaseModel):
+    tag: str = Field(min_length=1, max_length=32)
+
+
+class SummaryIn(BaseModel):
+    days: int = Field(default=7, le=90)
 
 
 class InventorySessionIn(BaseModel):

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from ..core.config import get_settings
 from ..core.security import current_user, get_identity
-from ..schemas import MessageOut
+from ..schemas import MessageOut, MessageTagIn
 from ..services import analysis
 from .deps import get_session, user_identity
 
@@ -33,6 +33,7 @@ def _to_out(row: dict) -> MessageOut:
         msg_type=row["msg_type"],
         content=row["content"],
         media_meta=media_meta,
+        tags=row.get("tags", []),
         ts=datetime.fromisoformat(row["ts"]),
         recalled=bool(row["recalled"]),
         source=row["source"],
@@ -70,6 +71,7 @@ def search(
         identity_role=identity["role"],
         identity_uid=identity["uid"],
     )
+    rows = analysis.attach_tags(db, rows)
     return {"items": [_to_out(r) for r in rows], "next_cursor": next_cursor}
 
 
@@ -90,6 +92,68 @@ def context(
 
 def _out_model(m):
     return MessageOut.model_validate(m)
+
+
+@router.get("/messages/{message_id}/tags")
+def list_message_tags(
+    message_id: int, identity: dict = Depends(get_identity), db: Session = Depends(get_session)
+):
+    from sqlalchemy import select
+
+    from ..models import MessageTag
+
+    current_user(identity, db)
+    rows = db.scalars(
+        select(MessageTag).where(MessageTag.message_id == message_id).order_by(MessageTag.id)
+    ).all()
+    return [t.tag for t in rows]
+
+
+@router.post("/messages/{message_id}/tags")
+def add_message_tag(
+    message_id: int,
+    body: MessageTagIn,
+    identity: dict = Depends(get_identity),
+    db: Session = Depends(get_session),
+):
+    from sqlalchemy import select
+
+    from ..models import MessageTag
+
+    current_user(identity, db)
+    tag = body.tag.strip()
+    if not tag:
+        raise HTTPException(422, "tag 不能为空")
+    exists = db.scalar(
+        select(MessageTag).where(MessageTag.message_id == message_id, MessageTag.tag == tag)
+    )
+    if exists is None:
+        db.add(MessageTag(message_id=message_id, tag=tag, created_by=identity["uid"]))
+        db.commit()
+    rows = db.scalars(
+        select(MessageTag).where(MessageTag.message_id == message_id).order_by(MessageTag.id)
+    ).all()
+    return {"message_id": message_id, "tags": [t.tag for t in rows]}
+
+
+@router.delete("/messages/{message_id}/tags/{tag}")
+def delete_message_tag(
+    message_id: int,
+    tag: str,
+    identity: dict = Depends(get_identity),
+    db: Session = Depends(get_session),
+):
+    from sqlalchemy import delete, select
+
+    from ..models import MessageTag
+
+    current_user(identity, db)
+    db.execute(delete(MessageTag).where(MessageTag.message_id == message_id, MessageTag.tag == tag))
+    db.commit()
+    rows = db.scalars(
+        select(MessageTag).where(MessageTag.message_id == message_id).order_by(MessageTag.id)
+    ).all()
+    return {"message_id": message_id, "tags": [t.tag for t in rows]}
 
 
 @router.get("/media/{path:path}")

@@ -106,6 +106,24 @@ def search_messages(
     return [dict(r) for r in rows], next_cursor
 
 
+def attach_tags(db: Session, rows: list[dict]) -> list[dict]:
+    """为消息行批量附加 tags 列表（来自 message_tag）。"""
+    ids = [r["id"] for r in rows]
+    if not ids:
+        return rows
+    tag_map: dict[int, list[str]] = {}
+    for mid, tag in db.execute(
+        text(
+            "SELECT message_id, tag FROM message_tag "
+            f"WHERE message_id IN ({','.join(str(int(i)) for i in ids)}) ORDER BY id"
+        )
+    ).all():
+        tag_map.setdefault(int(mid), []).append(tag)
+    for r in rows:
+        r["tags"] = tag_map.get(int(r["id"]), [])
+    return rows
+
+
 def message_context(db: Session, message_id: int, before: int = 20, after: int = 20):
     anchor = db.get(Message, message_id)
     if anchor is None:
@@ -349,10 +367,18 @@ def _customer_extra(db: Session, session_ids: list[int]) -> dict:
         if cnt:
             hits.append({"word": kw.word, "category": kw.category, "count": int(cnt)})
     hits.sort(key=lambda x: -x["count"])
+    tag_rows = db.execute(
+        text(
+            "SELECT t.tag, COUNT(*) AS cnt FROM message_tag t "
+            f"WHERE t.message_id IN (SELECT id FROM message WHERE session_id IN ({id_list})) "
+            "GROUP BY t.tag ORDER BY cnt DESC LIMIT 10"
+        )
+    ).all()
     return {
         "active_hours": hours,
         "type_distribution": type_dist,
         "keyword_hits": hits[:10],
+        "tag_summary": [{"tag": t, "count": int(c)} for t, c in tag_rows],
     }
 
 

@@ -28,6 +28,7 @@ from ..schemas import (
     IngestBatchOut,
     InventoryIn,
     NotifyChannelIn,
+    SummaryIn,
     SyncTaskIn,
 )
 from ..services import alert_engine, analysis
@@ -287,6 +288,44 @@ def keyword_stats(days: int = Query(30, le=365), identity: dict = Depends(user_i
         out.append({"word": kw.word, "category": kw.category, "count": int(cnt)})
     out.sort(key=lambda x: -x["count"])
     return out
+
+
+@router.get("/analytics/customers/{customer_id}/summary")
+def get_summary(customer_id: int, identity: dict = Depends(user_identity),
+                db: Session = Depends(get_session)):
+    from ..services import ai as ai_svc
+
+    current_user(identity, db)
+    if identity["role"] == "sales":
+        from ..models import Customer
+
+        c = db.get(Customer, customer_id)
+        if c is None or c.owner_user_id != identity["uid"]:
+            raise HTTPException(403, "无权访问该客户")
+    row = ai_svc.get_customer_summary(db, customer_id)
+    if row is None:
+        return {"content": None, "created_at": None, "days": None}
+    return {"content": row.content, "created_at": row.created_at, "days": row.days}
+
+
+@router.post("/analytics/customers/{customer_id}/summary")
+def generate_summary(
+    customer_id: int,
+    body: SummaryIn,
+    identity: dict = Depends(manager_identity),
+    db: Session = Depends(get_session),
+):
+    from ..services import ai as ai_svc
+
+    current_user(identity, db)
+    try:
+        content = ai_svc.generate_customer_summary(db, customer_id, body.days)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    db.add(AuditLog(user_id=identity["uid"], action="ai_summary",
+                    target=f"customer:{customer_id}", detail={"days": body.days}))
+    db.commit()
+    return {"content": content, "days": body.days}
 
 
 # ---------- 会话白名单（服务端管控，采集端每轮拉取） ----------

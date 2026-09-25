@@ -2,7 +2,8 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import * as echarts from "echarts";
-import { listCustomers, customerOverview, listUnclaimed, claimSessions, listAlerts } from "../api/client";
+import { listCustomers, customerOverview, listUnclaimed, claimSessions, listAlerts,
+         getCustomerSummary, generateCustomerSummary } from "../api/client";
 import { ElMessage } from "element-plus";
 
 const route = useRoute();
@@ -14,6 +15,9 @@ const unclaimed = ref<any[]>([]);
 const selected = ref<number[]>([]);
 const chartEl = ref<HTMLDivElement>();
 const alerts = ref<any[]>([]);
+const summary = ref<any>({});
+const summaryDays = ref(7);
+const summarizing = ref(false);
 const maxHour = computed(() => Math.max(1, ...(overview.value.active_hours || [])));
 const keywordHits = computed(() => overview.value.keyword_hits || []);
 
@@ -23,6 +27,7 @@ onMounted(async () => {
   const ov = await customerOverview(cid);
   overview.value = ov.data;
   alerts.value = (await listAlerts({ customer_id: cid })).data;
+  summary.value = (await getCustomerSummary(cid)).data;
   const un = await listUnclaimed();
   unclaimed.value = un.data;
   if (chartEl.value) {
@@ -38,6 +43,18 @@ onMounted(async () => {
     });
   }
 });
+
+async function genSummary() {
+  summarizing.value = true;
+  try {
+    const r = await generateCustomerSummary(cid, summaryDays.value);
+    summary.value = { content: r.data.content, days: r.data.days, created_at: new Date().toISOString() };
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || "生成失败");
+  } finally {
+    summarizing.value = false;
+  }
+}
 
 async function claim() {
   if (!selected.value.length) return;
@@ -107,6 +124,25 @@ async function claim() {
             </el-timeline-item>
           </el-timeline>
           <div v-if="!alerts.length" style="color: #94a3b8; font-size: 13px">暂无预警</div>
+        </div>
+      </el-col>
+    </el-row>
+    <el-row :gutter="16">
+      <el-col :span="24">
+        <div class="card">
+          <h4>AI 摘要（可插拔 OpenAI 兼容接口，需在系统设置配置）</h4>
+          <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px">
+            <el-select v-model="summaryDays" style="width: 110px">
+              <el-option :value="7" label="近 7 天" /><el-option :value="14" label="近 14 天" />
+              <el-option :value="30" label="近 30 天" />
+            </el-select>
+            <el-button type="primary" :loading="summarizing" @click="genSummary">生成摘要</el-button>
+            <span v-if="summary.created_at" style="color:#94a3b8; font-size:12px">
+              生成于 {{ String(summary.created_at).slice(0, 16) }}
+            </span>
+          </div>
+          <div v-if="summary.content" style="white-space: pre-wrap; line-height: 1.7">{{ summary.content }}</div>
+          <div v-else style="color:#94a3b8; font-size:13px">尚未生成。需先在 系统设置→AI 配置 填写接口信息。</div>
         </div>
       </el-col>
     </el-row>

@@ -52,6 +52,14 @@ export const keywordStats = (days = 30) =>
   api.get("/analytics/keywords/stats", { params: { days } });
 export const exportSessionCsv = (id: number) =>
   api.get(`/sessions/${id}/export/csv`, { responseType: "blob" });
+export const addMessageTag = (id: number, tag: string) =>
+  api.post(`/messages/${id}/tags`, { tag });
+export const deleteMessageTag = (id: number, tag: string) =>
+  api.delete(`/messages/${id}/tags/${encodeURIComponent(tag)}`);
+export const getCustomerSummary = (id: number) =>
+  api.get(`/analytics/customers/${id}/summary`);
+export const generateCustomerSummary = (id: number, days: number) =>
+  api.post(`/analytics/customers/${id}/summary`, { days });
 
 // —— 预警/通知 ——
 export const listAlerts = (params?: object) => api.get("/alerts", { params });

@@ -267,6 +267,30 @@ class WhitelistRule(Base):
     created_at: Mapped[datetime] = _dt()
 
 
+class MessageTag(Base):
+    """消息标注（F3-4）：关键消息打标签，按标签汇总。"""
+
+    __tablename__ = "message_tag"
+    __table_args__ = (UniqueConstraint("message_id", "tag"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    message_id: Mapped[int] = mapped_column(ForeignKey("message.id"))
+    tag: Mapped[str] = mapped_column(String(32))
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("app_user.id"), nullable=True)
+    created_at: Mapped[datetime] = _dt()
+
+
+class CustomerSummary(Base):
+    """AI 客户摘要（F4-6）：按客户保存最近一次生成的摘要。"""
+
+    __tablename__ = "customer_summary"
+
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customer.id"), primary_key=True)
+    days: Mapped[int] = mapped_column(Integer, default=7)
+    content: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = _dt()
+
+
 class AppSetting(Base):
     __tablename__ = "app_setting"
 

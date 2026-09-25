@@ -5,6 +5,7 @@ import {
   listKeywords, createKeyword, deleteKeyword, listChannels, createChannel, testChannel,
   keywordStats,
 } from "../api/client";
+import { api } from "../api/client";
 import { ElMessage } from "element-plus";
 
 const tab = ref("users");
@@ -13,6 +14,7 @@ const members = ref<any[]>([]);
 const keywords = ref<any[]>([]);
 const keywordHits = ref<Record<string, number>>({});
 const channels = ref<any[]>([]);
+const aiCfg = ref<any>({ api_base: "", api_key: "", model: "" });
 
 const newUser = ref({ username: "", password: "", display_name: "", role: "sales" });
 const newMember = ref({ match_type: "wxid", match_value: "", display_name: "" });
@@ -30,6 +32,10 @@ async function load() {
     keywordHits.value = {};
   }
   try { channels.value = (await listChannels()).data; } catch { /* sales 无权限 */ }
+  try {
+    const all = await api.get("/settings");
+    if (all.data?.ai) aiCfg.value = { api_base: "", api_key: "", model: "", ...all.data.ai };
+  } catch { /* ignore */ }
 }
 onMounted(load);
 
@@ -61,6 +67,11 @@ async function addChannel() {
   });
   load();
 }
+async function saveAi() {
+  await api.put("/settings", { key: "ai", value: { ...aiCfg.value } });
+  ElMessage.success("AI 配置已保存");
+}
+
 async function test(id: number) {
   const { data } = await testChannel(id);
   ElMessage(data.status === "sent" ? "测试消息已发送" : `结果：${data.status} ${data.error || ""}`);
@@ -140,6 +151,25 @@ async function test(id: number) {
           </el-form-item>
           <el-form-item><el-input v-model="newKeyword.word" placeholder="词条" /></el-form-item>
           <el-form-item><el-button type="primary" @click="addKeyword">添加</el-button></el-form-item>
+        </el-form>
+      </el-tab-pane>
+
+      <el-tab-pane label="AI 配置" name="ai">
+        <el-alert type="info" :closable="false" style="margin-bottom: 10px"
+                  title="OpenAI 兼容接口；建议使用内网/私有部署模型，数据不出内网。配置后可在客户详情页生成 AI 摘要。" />
+        <el-form label-width="90" style="max-width: 560px">
+          <el-form-item label="API Base">
+            <el-input v-model="aiCfg.api_base" placeholder="https://llm.internal/v1" />
+          </el-form-item>
+          <el-form-item label="API Key">
+            <el-input v-model="aiCfg.api_key" placeholder="sk-..." show-password />
+          </el-form-item>
+          <el-form-item label="模型">
+            <el-input v-model="aiCfg.model" placeholder="模型名称" />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="saveAi">保存</el-button>
+          </el-form-item>
         </el-form>
       </el-tab-pane>
 

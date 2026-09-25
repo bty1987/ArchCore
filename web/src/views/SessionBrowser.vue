@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from "vue";
-import { listSessions, searchMessages, messageContext, exportSessionCsv } from "../api/client";
+import { listSessions, searchMessages, messageContext, exportSessionCsv,
+         addMessageTag, deleteMessageTag } from "../api/client";
 
 const sessions = ref<any[]>([]);
 const sessionId = ref<number | null>(null);
@@ -11,6 +12,9 @@ const nextCursor = ref<string | null>(null);
 const contextMsg = ref<any[] | null>(null);
 const dateRange = ref<[string, string] | null>(null);
 const senderWxid = ref("");
+const tagDialog = ref(false);
+const tagMsg = ref<any>(null);
+const tagInput = ref("");
 const SENDER_LABEL: Record<string, string> = {
   external: "客户方", internal: "我方同事", me: "我", system: "系统",
 };
@@ -48,6 +52,23 @@ async function load(append = false) {
   nextCursor.value = data.next_cursor;
 }
 
+async function openTagDialog(m: any) {
+  tagMsg.value = m;
+  tagInput.value = "";
+  tagDialog.value = true;
+}
+async function addTag() {
+  const t = tagInput.value.trim();
+  if (!t || !tagMsg.value) return;
+  const r = await addMessageTag(tagMsg.value.id, t);
+  tagMsg.value.tags = r.data.tags;
+  tagInput.value = "";
+}
+async function removeTag(m: any, t: string) {
+  const r = await deleteMessageTag(m.id, t);
+  m.tags = r.data.tags;
+}
+
 async function doExport() {
   if (!sessionId.value) return;
   const resp = await exportSessionCsv(sessionId.value);
@@ -82,6 +103,11 @@ async function showContext(row: any) {
       <el-button type="primary" @click="load()">检索</el-button>
       <el-button :disabled="!sessionId" @click="doExport">导出本会话 CSV</el-button>
     </div>
+    <div class="card" style="padding: 8px 12px">
+      <span style="color:#94a3b8; font-size:12px">
+        提示：点击消息下方的 🏷 按钮可给关键消息打标签（如「报价」「承诺」），客户详情页会按标签汇总。
+      </span>
+    </div>
 
     <div class="card flow">
       <div v-for="m in items" :key="m.id" class="msg" :class="m.sender_type" @click="showContext(m)">
@@ -89,13 +115,37 @@ async function showContext(row: any) {
           {{ new Date(m.ts).toLocaleString() }} · {{ SENDER_LABEL[m.sender_type] || m.sender_type }}
           <el-tag v-if="m.recalled" size="small" type="info">已撤回</el-tag>
         </div>
+        <div v-if="m.tags?.length" class="tags">
+          <el-tag v-for="t in m.tags" :key="t" size="small" type="warning" closable
+                  @close="removeTag(m, t)">#{{ t }}</el-tag>
+        </div>
+        <div v-if="m.tags?.length" class="tags">
+          <el-tag v-for="t in m.tags" :key="t" size="small" type="warning" closable
+                  @close="removeTag(m, t)">#{{ t }}</el-tag>
+        </div>
         <div v-if="m.msg_type === 'text'" class="content">{{ m.content }}</div>
         <div v-else-if="m.msg_type !== 'system'" class="content rich">
           <span class="chip">{{ iconOf(m) }} {{ m.content }}</span>
           <a v-if="m.media_meta?.url" :href="m.media_meta.url" target="_blank"
              rel="noopener" class="link">查看链接 ↗</a>
         </div>
+        <el-button class="tagbtn" link size="small" @click="openTagDialog(m)">🏷 标注</el-button>
       </div>
+      <el-dialog v-model="tagDialog" title="消息标注" width="360">
+        <div v-if="tagMsg" style="margin-bottom: 10px; color: #475569; font-size: 13px">
+          {{ (tagMsg.content || "").slice(0, 60) }}
+        </div>
+        <div style="margin-bottom: 10px">
+          <el-tag v-for="t in tagMsg?.tags || []" :key="t" closable style="margin-right: 6px"
+                  @close="tagMsg && removeTag(tagMsg, t)">#{{ t }}</el-tag>
+          <span v-if="!tagMsg?.tags?.length" style="color:#94a3b8; font-size:13px">暂无标签</span>
+        </div>
+        <el-input v-model="tagInput" placeholder="输入标签，如：报价 / 承诺 / 风险" @keyup.enter="addTag" />
+        <template #footer>
+          <el-button @click="tagDialog = false">关闭</el-button>
+          <el-button type="primary" @click="addTag">添加标签</el-button>
+        </template>
+      </el-dialog>
       <el-empty v-if="!items.length" description="无消息（调整会话/关键词）" />
       <div style="text-align: center; margin-top: 8px" v-if="nextCursor">
         <el-button @click="load(true)">加载更多</el-button>
@@ -106,6 +156,10 @@ async function showContext(row: any) {
       <div v-for="m in contextMsg || []" :key="m.id" class="msg" :class="m.sender_type">
         <div class="meta">{{ new Date(m.ts).toLocaleString() }} ·
           {{ SENDER_LABEL[m.sender_type] || m.sender_type }}</div>
+        <div v-if="m.tags?.length" class="tags">
+          <el-tag v-for="t in m.tags" :key="t" size="small" type="warning" closable
+                  @close="removeTag(m, t)">#{{ t }}</el-tag>
+        </div>
         <div v-if="m.msg_type === 'text'" class="content">{{ m.content }}</div>
         <div v-else-if="m.msg_type !== 'system'" class="content rich">
           <span class="chip">{{ iconOf(m) }} {{ m.content }}</span>
@@ -123,6 +177,9 @@ async function showContext(row: any) {
 .chip { display: inline-block; background: #f1f5f9; border: 1px dashed #cbd5e1;
         border-radius: 8px; padding: 4px 10px; color: #475569; font-size: 13px; }
 .link { font-size: 12px; color: #2563eb; text-decoration: none; }
+.tags { display: flex; gap: 4px; margin-top: 2px; }
+.tagbtn { opacity: 0.35; }
+.msg:hover .tagbtn { opacity: 1; }
 .msg { padding: 8px 12px; border-radius: 10px; margin: 6px 0; cursor: pointer; }
 .msg.external { background: #fff; border: 1px solid #e2e8f0; }
 .msg.internal, .msg.me { background: #e0f2fe; margin-left: 15%; }
