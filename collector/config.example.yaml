@@ -21,5 +21,12 @@ schedule:
   incr_minutes: 60         # 增量周期（小时级准实时）
   flush_seconds: 30
 
+padlocal:                  # 实时轨（可选，iPad 协议）：秒级推送，与解密轨互为备份
+  enabled: false           # 需 PadLocal token；封号风险高于解密轨，小号先验证
+  token: ""                # puppet_padlocal_xxx
+  node: node
+  bridge: ./padlocal_bridge/padlocal_bridge.mjs
+  allow_dm: true
+
 wcf_enabled: false         # 实时轨（依赖 M0 验证：3.9.12 登录 + 32 位匹配）
 send_enabled: false        # 永久 false：归档系统只收不发

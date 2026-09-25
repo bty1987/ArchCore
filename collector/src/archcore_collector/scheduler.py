@@ -44,6 +44,15 @@ def main_loop(settings) -> None:
     wcf = WcfWorker(settings, state)
     wcf.start()
 
+    pad_sup = None
+    if settings.padlocal.enabled and settings.padlocal.token:
+        from .padlocal_worker import PadlocalSupervisor
+
+        pad_sup = PadlocalSupervisor(settings)
+        if pad_sup.start():
+            log.info("padlocal 实时轨已并行启动（秒级），解密轨 %s 分钟/次兜底",
+                     settings.schedule.incr_minutes)
+
     log.info(
         "collector 启动：增量 %s 分钟/次，冲刷 %s 秒/次",
         settings.schedule.incr_minutes,
@@ -55,4 +64,6 @@ def main_loop(settings) -> None:
         pass
     finally:
         wcf.stop()
+        if pad_sup:
+            pad_sup.stop()
         state.close()

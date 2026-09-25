@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import time
 
 from .config import load_config
 
@@ -36,6 +37,8 @@ def run() -> None:
     parser.add_argument("-c", "--config", default=None, help="配置文件路径（默认 ./config.yaml）")
     parser.add_argument("--once", action="store_true", help="执行一次增量同步后退出")
     parser.add_argument("--full", action="store_true", help="执行全量历史导入后退出")
+    parser.add_argument("--padlocal", action="store_true",
+                        help="前台运行 PadLocal 实时桥接监护器（需配置 padlocal.token）")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -69,6 +72,19 @@ def run() -> None:
             print({"outbox_flushed": sender.flush()})
         finally:
             state.close()
+        return
+
+    if args.padlocal:
+        from .padlocal_worker import PadlocalSupervisor
+
+        sup = PadlocalSupervisor(settings)
+        if not sup.start():
+            return
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            sup.stop()
         return
 
     from .scheduler import main_loop

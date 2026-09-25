@@ -1,0 +1,10 @@
+{
+  "name": "archcore-padlocal-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ArchCore PadLocal realtime bridge (padlocal-client-ts -> /api/v1/ingest)",
+  "dependencies": {
+    "padlocal-client-ts": "^0.5.3"
+  }
+}

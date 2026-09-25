@@ -31,6 +31,21 @@ class SourceConfig(BaseModel):
     fixture_path: str = ""  # fixture 模式的样本库路径
 
 
+class PadlocalConfig(BaseModel):
+    """PadLocal 实时轨（iPad 协议，推送式）：与解密轨互为备份的第二通道。
+
+    需要 token（puppet_padlocal_xxx）与 Node.js；账号封号风险高于解密轨，
+    建议小号先行验证。collector_wxid 必须与 PadLocal 登录账号的 wxid 一致，
+    否则自己发的消息方向判定会错。
+    """
+
+    enabled: bool = False
+    token: str = ""  # puppet_padlocal_xxx
+    node: str = "node"  # Node.js 可执行文件
+    bridge: str = "./padlocal_bridge/padlocal_bridge.mjs"
+    allow_dm: bool = True  # 是否上报单聊（白名单管控的一部分）
+
+
 class ScheduleConfig(BaseModel):
     incr_minutes: int = 60
     flush_seconds: int = 30
@@ -46,6 +61,7 @@ class CollectorSettings(BaseSettings):
     source: SourceConfig = Field(default_factory=SourceConfig)
     whitelist: WhitelistConfig = Field(default_factory=WhitelistConfig)
     schedule: ScheduleConfig = Field(default_factory=ScheduleConfig)
+    padlocal: PadlocalConfig = Field(default_factory=PadlocalConfig)
     batch_size: int = 500
     wcf_enabled: bool = False  # 实时轨开关（依赖 M0 验证）
     send_enabled: bool = False  # 永久 False：归档系统只收不发

@@ -39,3 +39,7 @@ backups/
 
 # 第三方工具与验证产物（不入库）
 tools/
+
+# PadLocal 桥接 Node 依赖
+collector/padlocal_bridge/node_modules/
+collector/padlocal_bridge/package-lock.json
