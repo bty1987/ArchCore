@@ -17,10 +17,11 @@ export const useAuth = defineStore("auth", {
       const { data } = await apiLogin(username, password);
       this.token = data.token;
       this.role = data.role;
-      const meResp = await me();
-      this.username = meResp.data.username;
+      // 拦截器从 localStorage 取 token，必须先落盘再发起带认证的请求（如 /auth/me）
       localStorage.setItem("archcore_token", data.token);
       localStorage.setItem("archcore_role", data.role);
+      const meResp = await me();
+      this.username = meResp.data.username;
       localStorage.setItem("archcore_username", this.username);
     },
     logout() {
