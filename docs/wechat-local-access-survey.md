@@ -80,8 +80,8 @@ itchat、wechat4u、wechaty-puppet-wechat、Hanson/vbot。腾讯自 2017 年起�
 
 | 项目 | 状态 | 备注 |
 |---|---|---|
-| PadLocal | ❌ 渠道失效 | 付费 token 无法购买（本次调研起因） |
-| GeweChat | ❌ 停维 | 2025 年起无法登录 |
+| PadLocal | ⚠️ 发现疑似转售渠道 | token.rpachat.com（2026-09 发现，自助发卡式，待小号验证；托管式，厂商维护协议） |
+| GeweChat | ❌ 停维确认 | GitHub issue（2025-04）确认停止维护、无法登录；社区后继为 WeChatPadPro |
 | SimplePad | ⚠️ 存续 | 较新付费 wechaty puppet，含朋友圈 API |
 | dow-ipad-859 | ➖ 小众 | 859 版协议 + dify-on-wechat 集成 |
 
