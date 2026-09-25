@@ -42,10 +42,15 @@ class PadlocalSupervisor:
             cmd = [
                 cfg.node, str(bridge_path(cfg)),
                 "--token", cfg.token,
+                "--mode", cfg.mode,
                 "--server", self.settings.server_base_url,
                 "--collector-token", self.settings.server_ingest_token,
                 "--bridge-name", "archcore-padlocal",
             ]
+            if cfg.endpoint:
+                cmd += ["--endpoint", cfg.endpoint]
+            if cfg.authority:
+                cmd += ["--authority", cfg.authority]
             if cfg.allow_dm:
                 cmd.append("--allow-dm")
             log.info("padlocal 桥接启动：%s", " ".join(cmd[:2]) + " …")

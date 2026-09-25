@@ -40,7 +40,10 @@ class PadlocalConfig(BaseModel):
     """
 
     enabled: bool = False
-    token: str = ""  # puppet_padlocal_xxx
+    token: str = ""  # puppet_padlocal_xxx（或 rpachat 售出的服务 token）
+    mode: str = "direct"  # direct=直连 PadLocal 网关；service=网关化 PuppetService
+    endpoint: str = ""  # service 模式：网关地址，如 127.0.0.1:9001
+    authority: str = ""  # service 模式：托管服务发现地址（如 juzibot 系）
     node: str = "node"  # Node.js 可执行文件
     bridge: str = "./padlocal_bridge/padlocal_bridge.mjs"
     allow_dm: bool = True  # 是否上报单聊（白名单管控的一部分）

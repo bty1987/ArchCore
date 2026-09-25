@@ -1,14 +1,13 @@
-// ArchCore PadLocal 实时桥接（直连 padlocal-client-ts，不经 wechaty）：
-// PadLocalClient（iPad 协议）→ 白名单过滤 → ArchCore /api/v1/ingest
+// ArchCore PadLocal 实时桥接 v2：双模式对接
 //
-// 用法（需 PadLocal token，puppet_padlocal_xxx）：
-//   node padlocal_bridge.mjs --token puppet_padlocal_xxx --server http://127.0.0.1:8000 \
-//     --collector-token xxx [--allow-dm] [--bridge-name archcore-padlocal]
-// 首次运行按控制台给出的二维码图片 URL 扫码登录。
-// svr_id = PadLocal 消息 id，与解密轨（wechat4）经 svr_id 去重自然并存。
-
-import { PadLocalClient } from "padlocal-client-ts";
-import * as PadLocal from "padlocal-client-ts/dist/proto/padlocal_pb.js";
+//   --mode direct  直连 PadLocal 网关（padlocal-client-ts，官方 token）
+//   --mode service 网关化 PuppetService（rpachat 自建网关 / 托管服务）
+//
+// 通用参数：--token --server --collector-token --bridge-name --allow-dm
+// service 附加：--endpoint 127.0.0.1:9001 / --authority token-service-discovery... / --no-tls
+//
+// 消息流：扫码登录 → wechaty/padlocal 事件 → 白名单过滤（5 分钟刷新）→
+//         POST /ingest/messages（失败入重试队列）。svr_id 去重，与解密轨并存。
 
 const args = {};
 const argv = process.argv.slice(2);
@@ -24,6 +23,7 @@ for (let i = 0; i < argv.length; i++) {
     args[m[1]] = true;
   }
 }
+const MODE = args.mode || "direct";
 const TOKEN = args.token || "";
 const SERVER = args.server || "http://127.0.0.1:8000";
 const COLLECTOR_TOKEN = args["collector-token"] || "";
@@ -74,11 +74,10 @@ async function post(batch) {
   return resp.json();
 }
 
-async function submit(message) {
-  pending.push(message);
+async function submit(msg) {
+  pending.push(msg);
   if (pending.length >= 20) await flush();
 }
-
 async function flush() {
   while (pending.length) {
     const batch = { schema_ver: 1, messages: pending.slice(0, 100) };
@@ -94,12 +93,7 @@ async function flush() {
 }
 setInterval(() => flush().catch(() => {}), 30 * 1000);
 
-// ---------- 消息类型映射与富内容摘要 ----------
-const TYPE_MAP = {
-  1: "text", 3: "image", 34: "voice", 42: "contact_card", 43: "video",
-  47: "emoji", 48: "location", 49: "appmsg", 51: "system",
-  10000: "system", 10002: "system",
-};
+// ---------- 归一化 ----------
 const TYPE_LABEL = {
   image: "图片", video: "视频", voice: "语音", file: "文件", emoji: "表情",
   location: "位置", contact_card: "名片", quote: "卡片", appmsg: "卡片", system: "系统消息",
@@ -110,135 +104,207 @@ function titleOf(xml) {
   return (m && (m[1] || m[2])) || "";
 }
 
-function contentOf(baseType, raw) {
+function contentOf(mtype, raw) {
   const text = typeof raw === "string" ? raw : "";
-  if (baseType === 1) return text;
-  if ((baseType === 49 || baseType === 57) && text.includes("<title")) {
+  if (mtype === "text") return text;
+  if ((mtype === "quote" || mtype === "appmsg") && text.includes("<title")) {
     const title = titleOf(text);
     if (title) return `[卡片] ${title}`;
   }
-  const label = TYPE_LABEL[Object.keys(TYPE_MAP).find((k) => TYPE_MAP[k] === baseType) === undefined
-    ? baseType
-    : { 3: "image", 34: "voice", 42: "contact_card", 43: "video", 47: "emoji",
-        48: "location", 49: "appmsg", 51: "system", 10000: "system", 10002: "system" }[baseType]] || "消息";
+  const label = TYPE_LABEL[mtype] || "消息";
   return `[${label}]`;
 }
 
-// ---------- 消息解析（对齐 wechaty-puppet-padlocal 的 roomParser 语义） ----------
-let SELF_WXID = "";
+// ---------- direct 模式（padlocal-client-ts 直连） ----------
+async function runDirectMode() {
+  const { PadLocalClient } = await import("padlocal-client-ts");
+  const PadLocal = await import("padlocal-client-ts/dist/proto/padlocal_pb.js");
 
-function parseMessage(message) {
-  const from = message.fromusername || "";
-  const to = message.tousername || "";
-  let content = message.content || "";
-  const baseType = Number(message.type) || 0;
-  const msgType = TYPE_MAP[baseType] || `type_${baseType}`;
-  const ts = new Date(Number(message.createtime) * 1000)
-    .toISOString().replace("T", " ").slice(0, 19);
-  const isRoom = from.endsWith("@chatroom") || to.endsWith("@chatroom");
+  const client = await PadLocalClient.create(TOKEN, true);
+  let SELF_WXID = "";
 
-  let session;
-  let sender;
-  if (from.endsWith("@chatroom")) {
-    // 他人发的群消息：content = "wxid_sender:\n正文"
-    session = { wx_id: from, type: "group", name: "" };
-    const idx = content.indexOf(":\n");
-    if (idx !== -1) {
-      sender = content.slice(0, idx);
-      content = content.slice(idx + 2);
+  function parsePadLocal(message) {
+    const from = message.fromusername || "";
+    const to = message.tousername || "";
+    let content = message.content || "";
+    const baseType = Number(message.type) || 0;
+    const TYPE_MAP = {
+      1: "text", 3: "image", 34: "voice", 42: "contact_card", 43: "video",
+      47: "emoji", 48: "location", 49: "appmsg", 51: "system",
+      10000: "system", 10002: "system",
+    };
+    const mtype = TYPE_MAP[baseType] || `type_${baseType}`;
+    const ts = new Date(Number(message.createtime) * 1000)
+      .toISOString().replace("T", " ").slice(0, 19);
+
+    let session;
+    let sender;
+    if (from.endsWith("@chatroom")) {
+      // 他人发的群消息：content = "wxid_sender:\n正文"
+      session = { wx_id: from, type: "group", name: "" };
+      const idx = content.indexOf(":\n");
+      if (idx !== -1) {
+        sender = content.slice(0, idx);
+        content = content.slice(idx + 2);
+      } else {
+        sender = to;
+      }
+    } else if (to.endsWith("@chatroom")) {
+      // 自己发的群消息：from = 自己
+      session = { wx_id: to, type: "group", name: "" };
+      sender = from;
+      const idx = content.indexOf(":\n");
+      if (idx !== -1) content = content.slice(idx + 2);
     } else {
-      sender = to;
+      const counterpart = from === SELF_WXID ? to : from;
+      session = { wx_id: counterpart, type: "dm", name: "" };
+      sender = from;
     }
-  } else if (to.endsWith("@chatroom")) {
-    // 自己发的群消息：from = 自己，tousername = 群
-    session = { wx_id: to, type: "group", name: "" };
-    sender = from;
-    const idx = content.indexOf(":\n");
-    if (idx !== -1) content = content.slice(idx + 2);
-  } else {
-    // 单聊：会话对象 = 对方；自己发的消息 sender = 自己
-    const counterpart = from === SELF_WXID ? to : from;
-    session = { wx_id: counterpart, type: "dm", name: "" };
-    sender = from;
+    return {
+      session,
+      svr_id: String(message.id || ""),
+      sender_wxid: sender,
+      msg_type: mtype,
+      content: contentOf(mtype, content) || content,
+      ts,
+      source: "padlocal",
+    };
   }
-  return {
-    session,
-    svr_id: String(message.id || ""),
-    sender_wxid: sender,
-    msg_type: TYPE_MAP[baseType] || `type_${baseType}`,
-    content: contentOf(baseType, content) || content,
-    ts,
-    source: "padlocal",
-    _baseType: baseType,
-    _msgType: msgType,
+
+  async function handleMessage(message) {
+    const parsed = parsePadLocal(message);
+    if (!parsed.svr_id) return;
+    if (!allow(parsed.session.wx_id, parsed.session.type)) return;
+    await submit(parsed);
+  }
+
+  const QR_STATUS = {
+    [PadLocal.QRCodeStatus.NEW]: "等待扫码",
+    [PadLocal.QRCodeStatus.SCANNED]: "已扫码，请在手机确认",
+    [PadLocal.QRCodeStatus.CONFIRMED]: "已确认",
+    [PadLocal.QRCodeStatus.CANCELLED]: "已取消",
+    [PadLocal.QRCodeStatus.EXPIRED]: "二维码已过期（等待刷新）",
   };
-}
+  const onQrCodeEvent = async (qrCodeEvent) => {
+    const status = qrCodeEvent.getStatus();
+    const name = PadLocal.QRCodeStatus[status] || String(status);
+    const url = qrCodeEvent.getImageurl();
+    console.log(`[bridge] 扫码状态: ${QR_STATUS[name] || name}${url ? " → 二维码图片: " + url : ""}`);
+  };
 
-async function handleMessage(message) {
-  const parsed = parseMessage(message);
-  if (!parsed.svr_id) return;
-  if (!allow(parsed.session.wx_id, parsed.session.type)) return;
-  if (parsed._msgType !== "text" && parsed._msgType !== "system") {
-    // 非 text/system 已由 contentOf 生成展示占位
-  }
-  delete parsed._baseType;
-  delete parsed._msgType;
-  await submit(parsed);
-}
-
-// ---------- 主流程 ----------
-console.log(`[bridge] 启动：server=${SERVER} allow_dm=${ALLOW_DM}`);
-const client = await PadLocalClient.create(TOKEN, true);
-
-client.on("kickout", (detail) => {
-  console.error(`[bridge] 被踢下线: ${detail.errorMessage}（监护器将重启）`);
-  process.exit(1);
-});
-client.on("message", async (messageList) => {
-  for (const message of messageList) {
-    try {
-      await handleMessage(message);
-    } catch (err) {
-      console.error(`[bridge] 消息处理失败: ${err.message}`);
-    }
-  }
-});
-
-const QR_STATUS = {
-  [PadLocal.QRCodeStatus.NEW]: "等待扫码",
-  [PadLocal.QRCodeStatus.SCANNED]: "已扫码，请在手机确认",
-  [PadLocal.QRCodeStatus.CONFIRMED]: "已确认",
-  [PadLocal.QRCodeStatus.CANCELLED]: "已取消",
-  [PadLocal.QRCodeStatus.EXPIRED]: "二维码已过期（等待刷新）",
-};
-const onQrCodeEvent = async (qrCodeEvent) => {
-  const status = qrCodeEvent.getStatus();
-  const name = PadLocal.QRCodeStatus[status] || String(status);
-  const url = qrCodeEvent.getImageurl();
-  console.log(`[bridge] 扫码状态: ${QR_STATUS[name] || name}${url ? " → 二维码图片: " + url : ""}`);
-};
-
-await client.api.login(PadLocal.LoginPolicy.DEFAULT, {
-  onLoginStart: (loginType) => console.log(`[bridge] 开始登录，方式: ${loginType}`),
-  onLoginSuccess: async () => {
-    SELF_WXID = client.selfContact?.getUsername() || "";
-    console.log(`[bridge] 登录成功: ${SELF_WXID}（${client.selfContact?.getNickName?.() || ""}）`);
-    console.log(`[bridge] 请确认 collector 配置 collector_wxid=${SELF_WXID}（方向判定依据）`);
-    await refreshWhitelist();
-  },
-  onOneClickEvent: onQrCodeEvent,
-  onQrCodeEvent,
-  onSync: async (syncEvent) => {
-    // 登录后的增量同步：与实时消息同一处理（svr_id 去重）
-    for (const message of syncEvent.getMessageList()) {
+  client.on("kickout", (detail) => {
+    console.error(`[bridge] 被踢下线: ${detail.errorMessage}（监护器将重启）`);
+    process.exit(1);
+  });
+  client.on("message", async (messageList) => {
+    for (const message of messageList) {
       try {
         await handleMessage(message);
       } catch (err) {
-        console.error(`[bridge] 同步消息处理失败: ${err.message}`);
+        console.error(`[bridge] 消息处理失败: ${err.message}`);
       }
     }
-  },
-});
+  });
 
-console.log("[bridge] 实时接收中（Ctrl+C 退出）");
-setInterval(() => {}, 1 << 30); // 保持进程常驻
+  console.log("[bridge] direct 模式启动");
+  await client.api.login(PadLocal.LoginPolicy.DEFAULT, {
+    onLoginStart: (loginType) => console.log(`[bridge] 开始登录，方式: ${loginType}`),
+    onLoginSuccess: async () => {
+      SELF_WXID = client.selfContact?.getUsername() || "";
+      console.log(`[bridge] 登录成功: ${SELF_WXID}`);
+      console.log(`[bridge] 请确认 collector 配置 collector_wxid=${SELF_WXID}（方向判定依据）`);
+      await refreshWhitelist();
+    },
+    onOneClickEvent: onQrCodeEvent,
+    onQrCodeEvent,
+    onSync: async (syncEvent) => {
+      for (const message of syncEvent.getMessageList()) {
+        try {
+          await handleMessage(message);
+        } catch (err) {
+          console.error(`[bridge] 同步消息处理失败: ${err.message}`);
+        }
+      }
+    },
+  });
+}
+
+// ---------- service 模式（wechaty-puppet-service，网关化） ----------
+async function runServiceMode() {
+  // 对接 rpachat 自建网关 / 托管服务（环境变量见 RPA Chat 接入文档）
+  process.env.WECHATY_PUPPET = "wechaty-puppet-service";
+  process.env.WECHATY_PUPPET_SERVICE_TOKEN = TOKEN;
+  if (args.endpoint) process.env.WECHATY_PUPPET_SERVICE_ENDPOINT = args.endpoint;
+  if (args.authority) process.env.WECHATY_PUPPET_SERVICE_AUTHORITY = args.authority;
+  if (args["no-tls"]) {
+    process.env.WECHATY_PUPPET_SERVICE_NO_TLS_INSECURE_CLIENT = "true";
+    process.env.WECHATY_PUPPET_SERVICE_NO_TLS_INSECURE_SERVER = "true";
+  }
+
+  const { WechatyBuilder } = await import("wechaty");
+
+  const bot = WechatyBuilder.build({ name: BRIDGE_NAME }); // puppet 来自环境变量
+
+  bot
+    .on("scan", (qrcode, status) => {
+      console.log(`[bridge] 扫码状态 ${status}: https://wechaty.js.org/qrcode/${encodeURIComponent(qrcode)}`);
+    })
+    .on("login", (user) => {
+      console.log(`[bridge] 登录成功: ${user.id}（${user.name()}）`);
+      console.log(`[bridge] 请确认 collector 配置 collector_wxid=${user.id}（方向判定依据）`);
+      refreshWhitelist();
+    })
+    .on("logout", (user) => console.warn(`[bridge] 已登出: ${user}`))
+    .on("error", (err) => console.error(`[bridge] bot error: ${err.message}`))
+    .on("message", async (msg) => {
+      try {
+        const room = await msg.room();
+        const talker = await msg.talker();
+        const self = msg.self();
+        const rawType = Number(msg.type());
+        // wechaty-puppet MessageType 枚举（数字稳定）：7 文本 6 图片 15 视频 2 语音
+        // 5 表情 14 链接卡片 9 小程序 1 文件 4 聊天记录 3 名片 10 群公告 13 撤回
+        const TYPE_MAP = {
+          1: "file", 2: "voice", 3: "contact_card", 4: "quote", 5: "emoji",
+          6: "image", 7: "text", 9: "appmsg", 10: "system", 13: "system",
+          14: "quote", 15: "video", 16: "post",
+        };
+        const mtype = TYPE_MAP[rawType] || "appmsg";
+        const session = room
+          ? { wx_id: room.id, type: "group", name: (await room.topic()) || "" }
+          : { wx_id: self ? (msg.listener()?.id || selfWxId) : talker.id,
+              type: "dm", name: talker.name() || "" };
+        const sender = room ? talker.id : (self ? session.wx_id : talker.id);
+        if (!allow(session.wx_id, session.type)) return;
+        await submit({
+          session,
+          svr_id: String(msg.id),
+          sender_wxid: sender,
+          msg_type: mtype,
+          content: contentOf(mtype, msg.text()),
+          ts: msg.date().toISOString().replace("T", " ").slice(0, 19),
+          source: "padlocal",
+        });
+      } catch (err) {
+        console.error(`[bridge] 消息处理失败: ${err.message}`);
+      }
+    });
+
+  function selfWxId(msg, talker) {
+    // 自己发的单聊：listener 为对方；sender 语义由 server 侧 collector_wxid 判定
+    return talker.id;
+  }
+
+  console.log("[bridge] service 模式启动");
+  await bot.start();
+}
+
+(MODE === "service" ? runServiceMode() : runDirectMode())
+  .then(() => {
+    console.log(`[bridge] ${MODE} 模式实时接收中（Ctrl+C 退出）`);
+    setInterval(() => {}, 1 << 30); // 常驻
+  })
+  .catch((err) => {
+    console.error(`[bridge] 启动失败: ${err.message}`);
+    process.exit(1);
+  });

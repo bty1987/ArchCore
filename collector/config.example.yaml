@@ -23,7 +23,10 @@ schedule:
 
 padlocal:                  # 实时轨（可选，iPad 协议）：秒级推送，与解密轨互为备份
   enabled: false           # 需 PadLocal token；封号风险高于解密轨，小号先验证
-  token: ""                # puppet_padlocal_xxx
+  token: ""                # puppet_padlocal_xxx（或 rpachat 售出的服务 token）
+  mode: direct             # direct=直连官方网关；service=网关化（自建/托管）
+  endpoint: ""             # service 模式：WECHATY_PUPPET_SERVICE_ENDPOINT，如 127.0.0.1:9001
+  authority: ""            # service 模式：托管服务发现地址（可选）
   node: node
   bridge: ./padlocal_bridge/padlocal_bridge.mjs
   allow_dm: true

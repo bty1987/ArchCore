@@ -5,6 +5,8 @@
   "type": "module",
   "description": "ArchCore PadLocal realtime bridge (padlocal-client-ts -> /api/v1/ingest)",
   "dependencies": {
-    "padlocal-client-ts": "^0.5.3"
+    "padlocal-client-ts": "^0.5.3",
+    "wechaty": "^1.20.2",
+    "wechaty-puppet-service": "^1.19.9"
   }
 }
