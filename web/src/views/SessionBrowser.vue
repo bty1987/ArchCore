@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from "vue";
-import { listSessions, searchMessages, messageContext } from "../api/client";
+import { listSessions, searchMessages, messageContext, exportSessionCsv } from "../api/client";
 
 const sessions = ref<any[]>([]);
 const sessionId = ref<number | null>(null);
@@ -9,6 +9,8 @@ const senderType = ref("");
 const items = ref<any[]>([]);
 const nextCursor = ref<string | null>(null);
 const contextMsg = ref<any[] | null>(null);
+const dateRange = ref<[string, string] | null>(null);
+const senderWxid = ref("");
 const SENDER_LABEL: Record<string, string> = {
   external: "客户方", internal: "我方同事", me: "我", system: "系统",
 };
@@ -26,9 +28,25 @@ async function load(append = false) {
   if (q.value) params.q = q.value;
   if (senderType.value) params.sender_type = senderType.value;
   if (append && nextCursor.value) params.cursor = nextCursor.value;
+  if (senderWxid.value) params.sender_wxid = senderWxid.value;
+  if (dateRange.value) {
+    params.from_ts = dateRange.value[0] + " 00:00:00";
+    params.to_ts = dateRange.value[1] + " 23:59:59";
+  }
   const { data } = await searchMessages(params);
   items.value = append ? [...items.value, ...data.items] : data.items;
   nextCursor.value = data.next_cursor;
+}
+
+async function doExport() {
+  if (!sessionId.value) return;
+  const resp = await exportSessionCsv(sessionId.value);
+  const url = URL.createObjectURL(resp.data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `session-${sessionId.value}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 async function showContext(row: any) {
@@ -47,7 +65,12 @@ async function showContext(row: any) {
       <el-select v-model="senderType" placeholder="方向" style="width: 120px" clearable>
         <el-option v-for="(label, key) in SENDER_LABEL" :key="key" :label="label" :value="key" />
       </el-select>
+      <el-date-picker v-model="dateRange" type="daterange" value-format="YYYY-MM-DD"
+                      start-placeholder="开始日期" end-placeholder="结束日期" style="width: 240px" />
+      <el-input v-model="senderWxid" placeholder="发送者 wxid（精确）" style="width: 170px"
+                clearable @change="load()" />
       <el-button type="primary" @click="load()">检索</el-button>
+      <el-button :disabled="!sessionId" @click="doExport">导出本会话 CSV</el-button>
     </div>
 
     <div class="card flow">

@@ -3,6 +3,7 @@ import { onMounted, ref } from "vue";
 import {
   listUsers, createUser, updateUser, listMembers, createMember, deleteMember,
   listKeywords, createKeyword, deleteKeyword, listChannels, createChannel, testChannel,
+  keywordStats,
 } from "../api/client";
 import { ElMessage } from "element-plus";
 
@@ -10,6 +11,7 @@ const tab = ref("users");
 const users = ref<any[]>([]);
 const members = ref<any[]>([]);
 const keywords = ref<any[]>([]);
+const keywordHits = ref<Record<string, number>>({});
 const channels = ref<any[]>([]);
 
 const newUser = ref({ username: "", password: "", display_name: "", role: "sales" });
@@ -21,6 +23,12 @@ async function load() {
   users.value = (await listUsers()).data;
   members.value = (await listMembers()).data;
   keywords.value = (await listKeywords()).data;
+  try {
+    const hits = (await keywordStats(30)).data as any[];
+    keywordHits.value = Object.fromEntries(hits.map((h) => [h.word, h.count]));
+  } catch {
+    keywordHits.value = {};
+  }
   try { channels.value = (await listChannels()).data; } catch { /* sales 无权限 */ }
 }
 onMounted(load);
@@ -115,6 +123,9 @@ async function test(id: number) {
         <el-table :data="keywords" size="small">
           <el-table-column prop="category" label="类别" width="90" />
           <el-table-column prop="word" label="词条" />
+          <el-table-column label="命中（30 天）" width="120">
+            <template #default="{ row }">{{ keywordHits[row.word] ?? 0 }}</template>
+          </el-table-column>
           <el-table-column label="操作" width="80">
             <template #default="{ row }">
               <el-button link type="danger" @click="deleteKeyword(row.id); load()">删除</el-button>

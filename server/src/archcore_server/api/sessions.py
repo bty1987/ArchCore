@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -93,3 +93,20 @@ def map_session(
 @router.get("/unclaimed")
 def unclaimed(identity: dict = Depends(manager_identity), db: Session = Depends(get_session)):
     return mapping.list_unclaimed(db)
+
+
+@router.get("/{session_id}/export/csv")
+def export_session_csv(
+    session_id: int,
+    identity: dict = Depends(manager_identity),
+    db: Session = Depends(get_session),
+):
+    """单会话导出 CSV（全量审计，见 exporter）。"""
+    from ..services import exporter
+
+    filename, buf = exporter.export_messages_csv(db, session_id, None, None, identity["uid"])
+    return Response(
+        content=buf.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )

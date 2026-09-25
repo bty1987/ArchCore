@@ -37,6 +37,7 @@ def search_messages(
     from_ts: datetime | None = None,
     to_ts: datetime | None = None,
     sender_type: str | None = None,
+    sender_wxid: str | None = None,
     msg_type: str | None = None,
     customer_id: int | None = None,
     cursor: str | None = None,
@@ -71,6 +72,9 @@ def search_messages(
     if sender_type:
         conditions.append("m.sender_type = :stype")
         params["stype"] = sender_type
+    if sender_wxid:
+        conditions.append("m.sender_wxid = :swxid")
+        params["swxid"] = sender_wxid
     if msg_type:
         conditions.append("m.msg_type = :mtype")
         params["mtype"] = msg_type
@@ -291,7 +295,9 @@ def customer_overview(db: Session, customer_id: int) -> dict:
     for s in sessions:
         latencies.extend(compute_reply_latencies(db, s.id))
     on_time = [x for x in latencies if x >= 0]
-    return {
+
+    session_ids = [s.id for s in sessions]
+    result = {
         "session_count": len(sessions),
         "trend": [{"date": d, "total": int(t or 0), "external": int(e or 0)} for d, t, e in trend],
         "response": {
@@ -300,6 +306,53 @@ def customer_overview(db: Session, customer_id: int) -> dict:
             "p90_minutes": _percentile(on_time, 90),
             "sla_rate": round(len(on_time) / len(latencies), 3) if latencies else None,
         },
+    }
+    if session_ids:
+        result.update(_customer_extra(db, session_ids))
+    return result
+
+
+def _customer_extra(db: Session, session_ids: list[int]) -> dict:
+    """活跃时段热力（24 小时）、消息类型分布、关键词命中（30 天）。"""
+    since = (datetime.utcnow() - timedelta(days=30)).replace(microsecond=0)
+    id_list = ",".join(str(int(i)) for i in session_ids)  # id 来自库内自增，非外部输入
+
+    hours = [0] * 24
+    for h, cnt in db.execute(
+        text(
+            f"SELECT CAST(strftime('%H', ts) AS INTEGER) AS h, COUNT(*) FROM message "
+            f"WHERE session_id IN ({id_list}) AND ts >= :since GROUP BY h"
+        ),
+        {"since": since},
+    ).all():
+        hours[int(h)] = int(cnt)
+    type_dist = {
+        mt: int(cnt)
+        for mt, cnt in db.execute(
+            text(
+                f"SELECT msg_type, COUNT(*) FROM message "
+                f"WHERE session_id IN ({id_list}) GROUP BY msg_type"
+            )
+        ).all()
+    }
+    from ..models import Keyword
+
+    hits = []
+    for kw in db.scalars(select(Keyword).where(Keyword.enabled.is_(True))).all():
+        cnt = db.execute(
+            text(
+                f"SELECT COUNT(*) FROM message WHERE session_id IN ({id_list}) "
+                f"AND content LIKE :pat"
+            ),
+            {"pat": f"%{kw.word}%"},
+        ).scalar()
+        if cnt:
+            hits.append({"word": kw.word, "category": kw.category, "count": int(cnt)})
+    hits.sort(key=lambda x: -x["count"])
+    return {
+        "active_hours": hours,
+        "type_distribution": type_dist,
+        "keyword_hits": hits[:10],
     }
 
 

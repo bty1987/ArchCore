@@ -261,6 +261,34 @@ def test_channel(
     return {"status": status_, "error": error}
 
 
+@router.get("/analytics/keywords/stats")
+def keyword_stats(days: int = Query(30, le=365), identity: dict = Depends(user_identity),
+                  db: Session = Depends(get_session)):
+    """词库命中统计：全库范围按词计数（词库管理页与售前口径使用）。"""
+    from ..models import Keyword
+
+    current_user(identity, db)
+    from datetime import date, timedelta
+
+    from sqlalchemy import text as _text
+
+    since = str(date.today() - timedelta(days=days - 1))
+    out = []
+    for kw in db.scalars(
+        select(Keyword).where(Keyword.enabled.is_(True))
+    ).all():
+        cnt = db.execute(
+            _text(
+                "SELECT COUNT(*) FROM message "
+                "WHERE content LIKE :pat AND ts >= :since"
+            ),
+            {"pat": f"%{kw.word}%", "since": since},
+        ).scalar()
+        out.append({"word": kw.word, "category": kw.category, "count": int(cnt)})
+    out.sort(key=lambda x: -x["count"])
+    return out
+
+
 # ---------- 会话白名单（服务端管控，采集端每轮拉取） ----------
 
 
