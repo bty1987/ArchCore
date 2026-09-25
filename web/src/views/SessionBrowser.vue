@@ -14,6 +14,16 @@ const senderWxid = ref("");
 const SENDER_LABEL: Record<string, string> = {
   external: "客户方", internal: "我方同事", me: "我", system: "系统",
 };
+const TYPE_ICON: Record<string, string> = {
+  image: "🖼️", video: "🎬", voice: "🎤", file: "📄", emoji: "😄",
+  location: "📍", quote: "💬", appmsg: "🗂️", contact_card: "👤",
+};
+function isRich(m: any) {
+  return m.msg_type !== "text" && m.msg_type !== "system";
+}
+function iconOf(m: any) {
+  return TYPE_ICON[m.msg_type] || "📎";
+}
 
 onMounted(async () => {
   const { data } = await listSessions();
@@ -79,7 +89,12 @@ async function showContext(row: any) {
           {{ new Date(m.ts).toLocaleString() }} · {{ SENDER_LABEL[m.sender_type] || m.sender_type }}
           <el-tag v-if="m.recalled" size="small" type="info">已撤回</el-tag>
         </div>
-        <div class="content">{{ m.content }}</div>
+        <div v-if="m.msg_type === 'text'" class="content">{{ m.content }}</div>
+        <div v-else-if="m.msg_type !== 'system'" class="content rich">
+          <span class="chip">{{ iconOf(m) }} {{ m.content }}</span>
+          <a v-if="m.media_meta?.url" :href="m.media_meta.url" target="_blank"
+             rel="noopener" class="link">查看链接 ↗</a>
+        </div>
       </div>
       <el-empty v-if="!items.length" description="无消息（调整会话/关键词）" />
       <div style="text-align: center; margin-top: 8px" v-if="nextCursor">
@@ -91,7 +106,12 @@ async function showContext(row: any) {
       <div v-for="m in contextMsg || []" :key="m.id" class="msg" :class="m.sender_type">
         <div class="meta">{{ new Date(m.ts).toLocaleString() }} ·
           {{ SENDER_LABEL[m.sender_type] || m.sender_type }}</div>
-        <div class="content">{{ m.content }}</div>
+        <div v-if="m.msg_type === 'text'" class="content">{{ m.content }}</div>
+        <div v-else-if="m.msg_type !== 'system'" class="content rich">
+          <span class="chip">{{ iconOf(m) }} {{ m.content }}</span>
+          <a v-if="m.media_meta?.url" :href="m.media_meta.url" target="_blank"
+             rel="noopener" class="link">查看链接 ↗</a>
+        </div>
       </div>
     </el-drawer>
   </div>
@@ -99,6 +119,10 @@ async function showContext(row: any) {
 
 <style scoped>
 .flow { max-height: calc(100vh - 220px); overflow: auto; }
+.rich { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.chip { display: inline-block; background: #f1f5f9; border: 1px dashed #cbd5e1;
+        border-radius: 8px; padding: 4px 10px; color: #475569; font-size: 13px; }
+.link { font-size: 12px; color: #2563eb; text-decoration: none; }
 .msg { padding: 8px 12px; border-radius: 10px; margin: 6px 0; cursor: pointer; }
 .msg.external { background: #fff; border: 1px solid #e2e8f0; }
 .msg.internal, .msg.me { background: #e0f2fe; margin-left: 15%; }

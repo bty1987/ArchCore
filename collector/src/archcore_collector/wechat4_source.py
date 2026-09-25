@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 import sqlite3
 from collections.abc import Iterator
 from datetime import datetime
@@ -23,7 +24,103 @@ from .sources import RawMessage, SessionInfo
 
 log = logging.getLogger(__name__)
 
-TYPE_TEXT = 1  # local_type 低 32 位：1=文本（其余类型随真机样本逐步校准）
+TYPE_TEXT = 1  # local_type 低 32 位：1=文本
+
+# 4.x local_type 低 32 位类型枚举（沿用微信消息类型体系，随真机样本校准）
+_BASE_TYPES = {
+    1: "text", 3: "image", 34: "voice", 42: "contact_card", 43: "video",
+    47: "emoji", 48: "location", 49: "appmsg", 51: "system",
+    10000: "system", 10002: "system",
+}
+
+
+def parse_rich(msg_type: str, content: str) -> tuple[str, dict]:
+    """微信 XML 富内容 → (友好展示文本, 结构化元数据)。解析失败原样返回。
+
+    对齐 PRD 3.3：content 存展示占位/标题，media_meta 存结构化字段，
+    原始 XML 已由调用方保底存 raw。
+    """
+    meta: dict = {"kind": msg_type}
+    if not (isinstance(content, str) and "<" in content):
+        return content, meta
+    import xml.etree.ElementTree as ET
+
+    # 去掉 openim 等渠道的 "id@openim: " 前缀行：从第一个 "<" 起解析
+    content = content[content.index("<"):]
+    try:
+        root = ET.fromstring(content)
+    except ET.ParseError:
+        return "[卡片消息]", meta
+
+    def _child_text(parent, tag: str) -> str:
+        node = parent.find(tag) if parent is not None else None
+        return (node.text or "").strip() if node is not None and node.text else ""
+
+    # 语音：voicelength 在 voicemsg 子节点属性（部分版本在根节点，两处都取）
+    if msg_type == "voice":
+        node = root.find("voicemsg")
+        if node is None:
+            node = root
+        seconds = int(int(node.attrib.get("voicelength", "0") or 0) / 1000)
+        meta.update({"duration_seconds": seconds})
+        return f"[语音] {seconds} 秒", meta
+    if msg_type == "image":
+        img = root.find("img")
+        size = int(img.attrib.get("length", "0") or 0) if img is not None else 0
+        meta.update({"size_bytes": size})
+        return "[图片]", meta
+    if msg_type == "video":
+        v = root.find("videomsg")
+        seconds = int(v.attrib.get("playlength", "0") or 0) if v is not None else 0
+        meta.update({"duration_seconds": seconds})
+        return f"[视频] {seconds} 秒", meta
+    if msg_type == "emoji":
+        return "[表情]", meta
+    if msg_type == "location":
+        label = root.attrib.get("label", "") or root.attrib.get("poiname", "")
+        meta.update({"label": label})
+        return f"[位置] {label}"[:120], meta
+
+    # appmsg 家族：卡片 / 文件 / 引用
+    appmsg = root.find("appmsg")
+    if appmsg is None:
+        return "[卡片消息]", meta
+    title = _child_text(appmsg, "title")
+    des = _child_text(appmsg, "des")
+    url = _child_text(appmsg, "url")
+    app_type = _child_text(appmsg, "type") or "0"
+    meta.update({"title": title[:200], "url": url or None, "app_type": app_type})
+    if url:
+        meta["url"] = url
+
+    refer = appmsg.find("refermsg")
+    if refer is not None:
+        who = _child_text(refer, "displayname")
+        what = _child_text(refer, "content")
+        if len(what) > 60:
+            what = what[:60] + "…"
+        meta["quote"] = {"who": who, "content": what}
+        display = f"[引用] {who}：{what}"
+        reply = _child_text(appmsg, "content")
+        if reply:
+            display += "\n↪ " + reply[:120]
+        return display, meta
+
+    if app_type == "6":  # 文件
+        attach = appmsg.find("appattach")
+        size = 0
+        if attach is not None:
+            size = int(_child_text(attach, "totallen") or 0)
+        meta.update({"kind": "file", "filename": title, "size_bytes": size})
+        return f"[文件] {title}", meta
+
+    if title:
+        display = f"[卡片] {title}"
+        if des:
+            display += "\n" + des[:120]
+        meta["kind"] = "card"
+        return display, meta
+    return "[卡片消息]", meta
 
 
 class WeChat4Source:
@@ -91,10 +188,7 @@ class WeChat4Source:
                 ]
             finally:
                 conn.close()
-            by_table = {
-                self._talker_table(username): username
-                for username in list(names)
-            }
+            by_table = {self._talker_table(username): username for username in list(names)}
             # Name2Id 里可能有未加联系人的会话对象，一并纳入反查
             conn = self._conn(rel)
             try:
@@ -144,12 +238,24 @@ class WeChat4Source:
                     params.append(int(since.timestamp()))
                 sql += " ORDER BY create_time, server_id"
                 for row in conn.execute(sql, params):
+                    content = self._content(
+                        row["message_content"], row["WCDB_CT_message_content"]
+                    )
+                    # openim 渠道文本消息带 "id@openim: " 前缀行，展示时去除
+                    if row["local_type"] & 0xFFFFFFFF == 1:
+                        content = re.sub(r"^\d+@openim:\s*", "", content)
+                    msg_type = self._msg_type(row["local_type"], content)
+                    if msg_type not in ("text", "system"):
+                        content, media_meta = parse_rich(msg_type, content)
+                    else:
+                        media_meta = None
                     yield RawMessage(
                         session=session,
                         svr_id=str(row["server_id"]) if row["server_id"] else None,
                         sender_wxid=id2name.get(row["real_sender_id"]),
-                        msg_type=self._msg_type(row["local_type"], row["message_content"]),
-                        content=self._content(row["message_content"], row["WCDB_CT_message_content"]),
+                        msg_type=msg_type,
+                        content=content,
+                        media_meta=media_meta or None,
                         ts=datetime.fromtimestamp(row["create_time"]),
                         raw={"local_type": row["local_type"]},
                     )
@@ -160,10 +266,11 @@ class WeChat4Source:
     def _msg_type(local_type: int, content) -> str:
         base = local_type & 0xFFFFFFFF
         if base == TYPE_TEXT:
-            if isinstance(content, bytes) or (isinstance(content, str) and content.startswith("<")):
-                return "quote"  # XML 结构（appmsg/引用等），按 PRD 3.3 存结构化
+            # openim 渠道消息带 "id@openim: " 前缀行，XML 在前缀之后
+            if isinstance(content, str) and "<msg" in content:
+                return "quote"
             return "text"
-        return {2: "image", 3: "voice", 4: "video"}.get(base, f"type_{base}")
+        return _BASE_TYPES.get(base, f"type_{base}")
 
     @staticmethod
     def _content(content, ct_flag: int) -> str:
