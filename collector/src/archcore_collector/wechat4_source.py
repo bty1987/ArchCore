@@ -86,7 +86,7 @@ class WeChat4Source:
                     r[0]
                     for r in conn.execute(
                         "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE ?",
-                        ("Msg\\_%",),
+                        ("Msg_%",),
                     )
                 ]
             finally:
@@ -128,10 +128,12 @@ class WeChat4Source:
             try:
                 if not self._table_exists(conn, table):
                     continue
-                name2id = dict(conn.execute("SELECT user_name, id FROM Name2Id")) if self._table_exists(
-                    conn, "Name2Id"
-                ) else {}
-                id2name = {v: k for k, v in name2id.items()}
+                id2name = {}
+                if self._table_exists(conn, "Name2Id"):
+                    id2name = {
+                        rid: uname
+                        for rid, uname in conn.execute("SELECT rowid, user_name FROM Name2Id")
+                    }
                 sql = (
                     f"SELECT server_id, real_sender_id, local_type, message_content, "
                     f"WCDB_CT_message_content, create_time FROM '{table}'"
