@@ -61,7 +61,7 @@ Wechaty 本体仍是活跃的开源对话机器人 SDK，核心价值在 Puppet�
 
 | 项目 | 微信版本 | 状态 | 备注 |
 |---|---|---|---|
-| WeChatFerry（lich0821） | 3.9.12.x | ✅ 活跃（v39.5.x） | 约 6.4k★；真回调非轮询；Python/Go/Java SDK；推荐主选 |
+| WeChatFerry（lich0821） | 3.9.12.x | ✅ 活跃（v39.5.x） | 约 6.4k★；真回调非轮询；Python/Go/Java/Node SDK；推荐主选。**版本精确对应（2026-09 补充）：v39.0.x→微信 3.9.2.23、v39.2.x→3.9.10.27、Node 版 @wechatferry/puppet→3.9.12.17；仅支持 64 位微信；旧版安装包存档：GitHub tom-snow/wechat-windows-versions** |
 | wxhelper（ttttupup） | 3.9.8.25 | ⚠️ 一般 | DLL 注入 + HTTP 19088；版本较旧 |
 | jwping/wxbot | 3.9.7~3.9.8 | ⚠️ 一般 | wxhelper 封装 |
 | wechaty-puppet-xp | 3.9.10.27 | ❌ 停更 | 近期仅 README 修正；消息偶发发送失败、群成员列表不稳且无人修 |
