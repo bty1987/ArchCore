@@ -43,3 +43,6 @@ tools/
 # PadLocal 桥接 Node 依赖
 collector/padlocal_bridge/node_modules/
 collector/padlocal_bridge/package-lock.json
+
+# 离线安装包（微信旧版/工具）
+offline/
