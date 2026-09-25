@@ -90,6 +90,8 @@ def generate(db_path: str | Path, days: int = 120, seed: int = 42) -> dict:
         else:
             msgs_per_day = 2
         members = EXTERNAL_MEMBERS.get(wx_id, [])
+        if not wx_id.endswith("@chatroom"):
+            members = [wx_id]  # 单聊：对方账号本身即外部发送者
         all_senders = members + INTERNAL_MEMBERS
         cur = start
         while cur < now:

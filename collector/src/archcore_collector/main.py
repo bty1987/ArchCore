@@ -33,6 +33,8 @@ def run() -> None:
                 print(run_full_import(settings, sender, state))
             else:
                 print(run_incr_sync(settings, sender, state))
+            # 冲刷历史积压（断链期间的 outbox 遗留批次）：无新消息时 submit 不会被调用
+            print({"outbox_flushed": sender.flush()})
         finally:
             state.close()
         return
