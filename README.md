@@ -41,9 +41,11 @@ ArchCore/
 python -m venv .venv && .venv\Scripts\pip install -e server -e collector
 python scripts\gen-fixtures.py            # 生成脱敏合成数据（红线：真实数据不入仓库）
 cd server && ..\.venv\Scripts\python -m uvicorn archcore_server.main:app --port 8000
-cd web && npm install && npm run dev      # 管理台 http://127.0.0.1:5173（admin / admin123456）
+cd web && npm install && npm run dev      # 管理台 http://127.0.0.1:5173
 python scripts\perf_check.py              # 性能验收：10 万条检索 <2s
 ```
+
+> 登录账号：未设置 `ARCHCORE_ADMIN_BOOTSTRAP_PASSWORD` 时为 admin / admin123456；设置了该环境变量（或用 start-server.bat 启动）则以设置的值为准。首次登录后建议改密。
 
 测试与质量门禁见 [docs/test-plan.md](docs/test-plan.md)（当前：server 33 + collector 13 全绿，ruff 0 告警）。
 
