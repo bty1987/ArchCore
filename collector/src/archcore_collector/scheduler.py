@@ -44,14 +44,22 @@ def main_loop(settings) -> None:
     wcf = WcfWorker(settings, state)
     wcf.start()
 
-    pad_sup = None
+    supervisors = []
     if settings.padlocal.enabled and settings.padlocal.token:
         from .padlocal_worker import PadlocalSupervisor
 
         pad_sup = PadlocalSupervisor(settings)
         if pad_sup.start():
+            supervisors.append(pad_sup)
             log.info("padlocal 实时轨已并行启动（秒级），解密轨 %s 分钟/次兜底",
                      settings.schedule.incr_minutes)
+    if settings.wcferry.enabled:
+        from .padlocal_worker import WcferrySupervisor
+
+        wcf_sup = WcferrySupervisor(settings)
+        if wcf_sup.start():
+            supervisors.append(wcf_sup)
+            log.info("wcferry 实时轨已并行启动（PC Hook）")
 
     log.info(
         "collector 启动：增量 %s 分钟/次，冲刷 %s 秒/次",
@@ -64,6 +72,6 @@ def main_loop(settings) -> None:
         pass
     finally:
         wcf.stop()
-        if pad_sup:
-            pad_sup.stop()
+        for sup in supervisors:
+            sup.stop()
         state.close()

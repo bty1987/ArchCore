@@ -30,8 +30,12 @@ const COLLECTOR_TOKEN = args["collector-token"] || "";
 const ALLOW_DM = !!args["allow-dm"];
 const BRIDGE_NAME = args["bridge-name"] || "archcore-padlocal";
 
-if (!TOKEN || !COLLECTOR_TOKEN) {
-  console.error("[bridge] 需要 --token 与 --collector-token");
+if (!COLLECTOR_TOKEN) {
+  console.error("[bridge] 需要 --collector-token");
+  process.exit(1);
+}
+if (MODE === "padlocal" && !TOKEN) {
+  console.error("[bridge] padlocal 模式需要 --token");
   process.exit(1);
 }
 
@@ -229,6 +233,64 @@ async function runDirectMode() {
   });
 }
 
+// ---------- wcferry 模式（PC Hook，本机 3.9.2.23 64 位微信） ----------
+async function runWcferryMode() {
+  const { WechatferryAgent } = await import("@wechatferry/agent");
+  const agent = new WechatferryAgent();
+  let selfWxid = "";
+
+  const TYPE_MAP = {
+    0: "post", 1: "text", 3: "image", 34: "voice", 37: "system", 40: "system",
+    42: "contact_card", 43: "video", 47: "emoji", 48: "location", 49: "appmsg",
+    50: "system", 51: "system", 52: "system", 62: "video", 65: "system",
+    2000: "system", 2001: "system", 2002: "appmsg", 2003: "system",
+    2004: "file", 9999: "system", 10000: "system", 10002: "system",
+  };
+
+  agent.on("login", (user) => {
+    selfWxid = user?.wxid || "";
+    console.log(`[bridge] 登录成功: ${selfWxId}`);
+    refreshWhitelist();
+  });
+  agent.on("error", (err) => console.error(`[bridge] wcf error: ${err.message}`));
+  agent.on("message", async (m) => {
+    try {
+      const isRoom = m.is_group || (m.roomid || "").endsWith("@chatroom");
+      let content = m.content || "";
+      let sender;
+      let session;
+      if (isRoom) {
+        session = { wx_id: m.roomid, type: "group", name: "" };
+        const idx = content.indexOf(":\n");
+        if (idx !== -1) {
+          sender = content.slice(0, idx);
+          content = content.slice(idx + 2);
+        } else {
+          sender = m.is_self ? selfWxid : m.sender;
+        }
+      } else {
+        session = { wx_id: m.sender, type: "dm", name: "" };
+        sender = m.is_self ? selfWxid : m.sender;
+      }
+      if (!allow(session.wx_id, session.type)) return;
+      await submit({
+        session,
+        svr_id: String(m.id),
+        sender_wxid: sender,
+        msg_type: TYPE_MAP[Number(m.type)] || `type_${m.type}`,
+        content: contentOf(TYPE_MAP[Number(m.type)] || "appmsg", content) || content,
+        ts: new Date(Number(m.ts) * 1000).toISOString().replace("T", " ").slice(0, 19),
+        source: "wcferry",
+      });
+    } catch (err) {
+      console.error(`[bridge] 消息处理失败: ${err.message}`);
+    }
+  });
+
+  console.log("[bridge] wcferry 模式启动（等待微信 3.9.2.23 客户端）");
+  agent.start();
+}
+
 // ---------- service 模式（wechaty-puppet-service，网关化） ----------
 async function runServiceMode() {
   // 对接 rpachat 自建网关 / 托管服务（环境变量见 RPA Chat 接入文档）
@@ -299,7 +361,8 @@ async function runServiceMode() {
   await bot.start();
 }
 
-(MODE === "service" ? runServiceMode() : runDirectMode())
+const RUNNERS = { direct: runDirectMode, service: runServiceMode, wcferry: runWcferryMode };
+(RUNNERS[MODE] || runDirectMode)()
   .then(() => {
     console.log(`[bridge] ${MODE} 模式实时接收中（Ctrl+C 退出）`);
     setInterval(() => {}, 1 << 30); // 常驻

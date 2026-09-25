@@ -44,9 +44,23 @@ class PadlocalConfig(BaseModel):
     mode: str = "direct"  # direct=直连 PadLocal 网关；service=网关化 PuppetService
     endpoint: str = ""  # service 模式：网关地址，如 127.0.0.1:9001
     authority: str = ""  # service 模式：托管服务发现地址（如 juzibot 系）
+    no_tls: bool = False  # service 模式：TLS 握手异常时置 true（WorkPro 实测需要）
     node: str = "node"  # Node.js 可执行文件
     bridge: str = "./padlocal_bridge/padlocal_bridge.mjs"
     allow_dm: bool = True  # 是否上报单聊（白名单管控的一部分）
+
+
+class WcferryConfig(BaseModel):
+    """WCFerry 实时轨（PC Hook，本机 3.9.2.23 64 位微信）：Node 桥接。
+
+    前置：3.9.2.23（64 位）已登录 + 端口 10086/10087 空闲；登录绕过属灰色手段，
+    封号风险最高，仅测试环境尝试。
+    """
+
+    enabled: bool = False
+    node: str = "node"
+    bridge: str = "./padlocal_bridge/padlocal_bridge.mjs"
+    allow_dm: bool = True
 
 
 class ScheduleConfig(BaseModel):
@@ -65,6 +79,7 @@ class CollectorSettings(BaseSettings):
     whitelist: WhitelistConfig = Field(default_factory=WhitelistConfig)
     schedule: ScheduleConfig = Field(default_factory=ScheduleConfig)
     padlocal: PadlocalConfig = Field(default_factory=PadlocalConfig)
+    wcferry: WcferryConfig = Field(default_factory=WcferryConfig)
     batch_size: int = 500
     wcf_enabled: bool = False  # 实时轨开关（依赖 M0 验证）
     send_enabled: bool = False  # 永久 False：归档系统只收不发

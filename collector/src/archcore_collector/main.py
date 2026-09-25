@@ -39,6 +39,8 @@ def run() -> None:
     parser.add_argument("--full", action="store_true", help="执行全量历史导入后退出")
     parser.add_argument("--padlocal", action="store_true",
                         help="前台运行 PadLocal 实时桥接监护器（需配置 padlocal.token）")
+    parser.add_argument("--wcferry", action="store_true",
+                        help="前台运行 WCFerry 实时桥接监护器（需配置 wcferry.enabled）")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -74,10 +76,10 @@ def run() -> None:
             state.close()
         return
 
-    if args.padlocal:
-        from .padlocal_worker import PadlocalSupervisor
+    if args.padlocal or args.wcferry:
+        from .padlocal_worker import PadlocalSupervisor, WcferrySupervisor
 
-        sup = PadlocalSupervisor(settings)
+        sup = WcferrySupervisor(settings) if args.wcferry else PadlocalSupervisor(settings)
         if not sup.start():
             return
         try:

@@ -27,6 +27,13 @@ padlocal:                  # 实时轨（可选，iPad 协议）：秒级推送�
   mode: direct             # direct=直连官方网关；service=网关化（自建/托管）
   endpoint: ""             # service 模式：WECHATY_PUPPET_SERVICE_ENDPOINT，如 127.0.0.1:9001
   authority: ""            # service 模式：托管服务发现地址（可选）
+  no_tls: false            # service 模式：TLS 握手异常时置 true（WorkPro 实测需要）
+  node: node
+  bridge: ./padlocal_bridge/padlocal_bridge.mjs
+  allow_dm: true
+
+wcferry:                   # 实时轨（可选，PC Hook 3.9.2.23）：需旧版微信登录
+  enabled: false           # 登录绕过属灰色手段，风险最高，仅测试环境
   node: node
   bridge: ./padlocal_bridge/padlocal_bridge.mjs
   allow_dm: true
