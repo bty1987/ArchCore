@@ -279,6 +279,15 @@ def collect_stale_inspection(db: Session, now: datetime | None = None) -> int:
     last = db.scalar(select(SyncTask).order_by(SyncTask.created_at.desc()).limit(1))
     if last is None:
         return 0
+    # 最近一次同步任务失败 → 立即告警（不等超时）；冷却由 create_alert 控制
+    if last.status == "failed":
+        alert = create_alert(
+            db, "collect_stale", rule.level,
+            {"reason": "last_sync_failed", "type": last.type,
+             "at": (last.finished_at or last.created_at).isoformat(),
+             "note": (last.log or "")[:200]},
+        )
+        return 1 if alert else 0
     ref = last.finished_at or last.created_at
     if (now - ref).total_seconds() / 60 >= stale_minutes:
         alert = create_alert(

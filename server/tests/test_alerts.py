@@ -152,6 +152,39 @@ def test_collect_stale_inspection(client, admin_headers):
         )
         db.commit()
         assert collect_stale_inspection(db) == 1
+        # 最近一次任务 failed → 立即告警（不等超时）
+        db.execute(
+            text("DELETE FROM sync_task"),
+        )
+        recent = datetime.utcnow().isoformat(sep=" ")
+        db.execute(
+            text(
+                "INSERT INTO sync_task"
+                "(type,status,stats,log,collector_wxid,created_at,finished_at) "
+                "VALUES('incr_sync','failed','{}','decrypt_failed','wxid_c',:c,:f)"
+            ),
+            {"c": recent, "f": recent},
+        )
+        db.commit()
+        # 清掉前一条告警模拟冷却过期（failed 心跳每 30 分钟一次，冷却 60 分钟内只报一次）
+        db.execute(text("DELETE FROM notify_record"))
+        db.execute(text("DELETE FROM inapp_notification"))
+        db.execute(text("DELETE FROM alert"))
+        db.commit()
+        assert collect_stale_inspection(db) == 1  # failed 即告警
+        # 恢复成功心跳后不再告警
+        db.execute(text("DELETE FROM sync_task"))
+        fresh = datetime.utcnow().isoformat(sep=" ")
+        db.execute(
+            text(
+                "INSERT INTO sync_task"
+                "(type,status,stats,log,collector_wxid,created_at,finished_at) "
+                "VALUES('incr_sync','success','{}','','wxid_c',:c,:f)"
+            ),
+            {"c": fresh, "f": fresh},
+        )
+        db.commit()
+        assert collect_stale_inspection(db) == 0
     finally:
         db.close()
 

@@ -199,6 +199,30 @@ def scan_dll_internal_keys(dll_path: Path) -> list[bytes]:
     return keys
 
 
+_HEX_STR_PATTERN = re.compile(rb"(?<![0-9a-fA-F])[0-9a-fA-F]{64}(?![0-9a-fA-F])")
+
+
+def candidate_keys_hexstrings(pm: ProcessMemory) -> list[bytes]:
+    """Engine C（后备）：扫内存中的 64 位十六进制字符串（passphrase 文本形态）。"""
+    keys: list[bytes] = []
+    seen: set[bytes] = set()
+    for base, size in pm.regions():
+        memory = pm.read(base, size)
+        if not memory:
+            continue
+        for m in _HEX_STR_PATTERN.finditer(memory):
+            try:
+                key = bytes.fromhex(m.group().decode())
+            except ValueError:
+                continue
+            if key not in seen and _is_crypto_material(key):
+                seen.add(key)
+                keys.append(key)
+            if len(keys) >= 3000:  # 后备引擎，量级封顶
+                return keys
+    return keys
+
+
 def _is_crypto_material(key: bytes) -> bool:
     """普通文本过滤：相异字节 <15 或可打印字符 >24 的不是密钥。"""
     return len(set(key)) >= 15 and sum(32 <= b <= 126 for b in key) <= 24
@@ -257,6 +281,17 @@ def build_combos(
             add(f"derived^{ik_name}", mat_hex, _derive(material, salt))
             add(f"raw^{ik_name}", mat_hex, material)
     return combos
+
+
+def recover_key_from_candidates(
+    pm: ProcessMemory, sample_db: Path, mem_keys: list[bytes], internal_keys: list[bytes]
+) -> str | None:
+    """Engine C 后备恢复：与主流程同组合逻辑，仅候选来源不同。"""
+    page1 = sample_db.read_bytes()[:PAGE_SIZE]
+    with Pool(processes=max(1, cpu_count() // 2)) as pool:
+        combos = build_combos(mem_keys, page1[:SALT_SIZE], internal_keys)
+        result = verify_combos(pool, combos, page1)
+    return result[2].hex() if result else None
 
 
 def verify_combos(
@@ -408,9 +443,24 @@ def main() -> int:
     log(f"[*] Weixin.exe 进程：{pids}（逐个尝试，密钥在主进程）")
     install_dir = find_weixin_install(pids[0])
     dlls = sorted(install_dir.rglob("Weixin.dll"), key=lambda f: f.stat().st_size, reverse=True)
-    internal_keys = scan_dll_internal_keys(dlls[0]) if dlls else []
-    if not dlls:
+    if dlls:
+        internal_keys = scan_dll_internal_keys(dlls[0])
+    else:
         log(f"[!] 安装目录下未找到 Weixin.dll：{install_dir}")
+        internal_keys = []
+    # Engine B（后备）：Weixin.dll 无候选时扫安装目录其他大 DLL
+    if not internal_keys:
+        others = sorted(
+            (f for f in install_dir.rglob("*.dll") if f.name != "Weixin.dll"
+             and 1 << 20 <= f.stat().st_size <= 1 << 30),
+            key=lambda f: f.stat().st_size, reverse=True,
+        )[:8]
+        for f in others:
+            found = scan_dll_internal_keys(f)
+            if found:
+                log(f"[*] 内部密钥候选来自 {f.name}")
+                internal_keys = found
+                break
     if not internal_keys:
         log("[!] 未从 Weixin.dll 扫到内部密钥候选（继续用无 XOR 组合尝试）")
 

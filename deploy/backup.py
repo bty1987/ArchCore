@@ -19,6 +19,8 @@ def main() -> None:
     parser.add_argument("--db", default="./data/archcore.db")
     parser.add_argument("--media", default="./data/media")
     parser.add_argument("--config", default="collector/config.yaml")
+    parser.add_argument("--plain", default="./data/wechat4_plain",
+                        help="微信 4.x 解密明文库（数据的第二副本，一并备份）")
     parser.add_argument("--out", default="./backups")
     args = parser.parse_args()
 
@@ -43,6 +45,11 @@ def main() -> None:
     if media.exists():
         shutil.copytree(media, dest / "media", dirs_exist_ok=True)
         print(f"✓ 媒体目录 → {dest / 'media'}")
+
+    plain = Path(args.plain)
+    if plain.exists():
+        shutil.copytree(plain, dest / "wechat4_plain", dirs_exist_ok=True)
+        print(f"✓ 解密明文库 → {dest / 'wechat4_plain'}")
 
     cfg = Path(args.config)
     if cfg.exists():
