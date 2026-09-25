@@ -12,6 +12,7 @@ source:
   fixture_path: ./data/fixture_wechat.db
 
 whitelist:                 # F1-6 合规边界：白名单外数据不出微信目录
+  allow_all: false         # 个人本机测试可设 true（采全部）；商用部署禁止开启
   groups: []               # 群 wx_id 精确名单（xxx@chatroom）
   group_name_patterns: []  # 群名正则，如 ['^ABC项目']
   allow_dm: true           # 采集号自身的客户单聊

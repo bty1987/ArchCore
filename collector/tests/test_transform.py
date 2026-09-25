@@ -80,6 +80,12 @@ class TestWhitelist:
         f = WhitelistFilter(WhitelistConfig(groups=[], allow_dm=True))
         assert f.allow("wxid_client", "dm", "客户")
 
+    def test_allow_all_overrides_everything(self):
+        f = WhitelistFilter(WhitelistConfig(allow_all=True))
+        assert f.allow("任意群@chatroom", "group", "")
+        assert f.allow("任意私聊", "dm", "")
+        assert not WhitelistFilter(WhitelistConfig()).allow("任意群@chatroom", "group", "")
+
     @pytest.mark.parametrize(
         "cfg",
         [

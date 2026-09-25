@@ -394,6 +394,7 @@ def main() -> int:
     parser.add_argument("--internal-key", default=None, help="手工指定内部密钥（64 hex，通常不需要）")
     parser.add_argument("--out", default="./data/wechat4_plain", help="解密输出目录")
     parser.add_argument("--db-filter", default=None, help="只处理文件名含该子串的库")
+    parser.add_argument("--force", action="store_true", help="忽略已解密产物，强制重解（拉取 WAL 新增内容）")
     args = parser.parse_args()
     saved_passphrase = None
     key_file = Path("./data/wechat4_key.json")
@@ -440,7 +441,7 @@ def main() -> int:
         for src_db in encrypted:
             rel = src_db.relative_to(db_storage)
             dst = out_dir / rel
-            if dst.is_file() and dst.read_bytes()[:16] == SQLITE_HEADER:
+            if not args.force and dst.is_file() and dst.read_bytes()[:16] == SQLITE_HEADER:
                 log(f"  = {rel}: 已解密，跳过")
                 continue
             key_hex = None

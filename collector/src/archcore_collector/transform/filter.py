@@ -17,6 +17,8 @@ class WhitelistFilter:
         self._patterns = [re.compile(p) for p in cfg.group_name_patterns]
 
     def allow(self, wx_id: str, session_type: str, name: str) -> bool:
+        if self.cfg.allow_all:
+            return True
         if session_type == "group":
             if wx_id in self.cfg.groups:
                 return True

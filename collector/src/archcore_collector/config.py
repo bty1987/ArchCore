@@ -13,11 +13,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class WhitelistConfig(BaseModel):
-    """会话白名单（F1-6 合规边界）：非白名单会话在采集端被过滤，数据不出微信目录。"""
+    """会话白名单（F1-6 合规边界）：非白名单会话在采集端被过滤，数据不出微信目录。
+
+    allow_all 仅限个人本机测试环境：放宽白名单采集全部已同步会话，便于功能验证。
+    商用部署禁止开启（数据最小化是合规方案的硬要求）。
+    """
 
     groups: list[str] = []  # 群 wx_id 精确名单
     group_name_patterns: list[str] = []  # 群名正则（如 ^ABC项目）
     allow_dm: bool = True  # 是否采集采集号自身的客户单聊
+    allow_all: bool = False  # 测试开关：忽略白名单，采集全部（个人本机测试专用）
 
 
 class SourceConfig(BaseModel):

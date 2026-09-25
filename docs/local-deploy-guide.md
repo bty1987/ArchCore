@@ -183,6 +183,7 @@ source:
   db_dir: "D:/archcore/data/decrypt"     # 第 4 步的解密输出目录
 
 whitelist:                                # 合规与降噪边界：只归档你关心的会话
+  allow_all: false                        # 个人本机测试可设 true：忽略白名单采全部（商用禁止）
   groups: []                              # 先留空，用下面的命令查到群号再填
   group_name_patterns: []                 # 也可用群名正则，如 ['^ABC项目']
   allow_dm: true                          # 是否归档你的全部单聊（含家人/同事私聊），不想归就 false
