@@ -9,6 +9,7 @@ dependencies = [
     "pydantic>=2.9",
     "pydantic-settings>=2.4",
     "PyYAML>=6.0",
+    "zstandard>=0.23",  # 微信 4.x 消息内容 ZSTD 解压
 ]
 
 [project.optional-dependencies]

@@ -97,7 +97,11 @@ def build_source(cfg) -> DecryptSource:
     if cfg.type == "fixture":
         return FixtureSource(cfg.fixture_path)
     if cfg.type == "pywxdump":
-        from .pywxdump_source import PyWxDumpSource  # 需真实环境，M0-02 验证
+        from .pywxdump_source import PyWxDumpSource  # 3.x 路线（登录窗口受限）
 
         return PyWxDumpSource(cfg.db_dir)
+    if cfg.type == "wechat4":
+        from .wechat4_source import WeChat4Source  # 4.x 降级路线主轨（M0-06 已验证）
+
+        return WeChat4Source(cfg.db_dir)
     raise ValueError(f"未知数据源类型: {cfg.type}")
