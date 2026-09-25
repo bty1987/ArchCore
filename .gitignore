@@ -36,3 +36,6 @@ build/
 collector/config.yaml
 start-server.bat
 backups/
+
+# 第三方工具与验证产物（不入库）
+tools/
