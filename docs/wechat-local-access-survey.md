@@ -73,7 +73,7 @@ Wechaty 本体仍是活跃的开源对话机器人 SDK，核心价值在 Puppet�
 
 | 项目 | 微信版本 | 状态 | 备注 |
 |---|---|---|---|
-| wxauto / wxauto4（cluic） | 3.9.x / 4.0.5 | ✅ 活跃 | 另有付费增强版 wxautox4、wxauto-mcp |
+| wxauto / wxauto4（cluic） | 3.9.x / 4.0.x~4.1 | ⚠️ 活跃（4.1.x 兼容有波动报告） | 另有付费增强版 wxautox4、wxauto-mcp。**2026-09 评估后排除**：发送需常驻可见窗口、受微信更新破坏、与被动归档定位冲突——个微发送暂无可行低风险路径 |
 | wechat-automation-api | 4.0+ | ➖ 小众 | Flask + UIA 封装 HTTP，偏发送 |
 | GoodWeBot | RPA | ➖ 小众 | 偏 AI 机器人，归档相关性低 |
 
