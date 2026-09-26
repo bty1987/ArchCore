@@ -75,6 +75,7 @@ Wechaty 本体仍是活跃的开源对话机器人 SDK，核心价值在 Puppet�
 |---|---|---|---|
 | ~~wxhook（miloira）~~ | 3.x + 4.0.1.21~4.1.13.56 | ⚠️ GitHub 停更 | 已移除支持：3.9 登录被拒实测（faked_version 伪装 3.9.10/3.9.12.51/4.1.15.13 三档均无效——服务端校验非仅版本号）；4.x 需降级客户端 |
 | PyWechat（Msky，pywxauto.com） | 3.6.0.18~4.1.2.17（wxhook 同源续作） | 🟡 活跃（文档站 2026 更新，MIT） | DLL 注入同 wxhook + **HTTP 服务模式**（可对接任意后端）；**4.x 上限 4.1.2.17**，本机 4.1.15.13 不支持；PyPI 无包（QQ 群/私有分发）。定位：等其 4.x 列表追上 4.1.15 时重新评估，当前不 actionable |
+| **PyWeWork**（Msky 企微版） | 企微客户端（DLL 注入，版本列表未公开静态可得） | 🟡 活跃（MIT） | 企微全功能：消息收发（文本/图片/文件/视频/名片/小程序/视频号）、内部/外部联系人、群管理、事件监听、FastAPI HTTP 服务。架构：代码 ←PyWeWork（本地 HTTP↔DLL）← 企微客户端。**与 WorkPro token 互补**（本机注入免费 vs 云托管付费）；版本列表需进群确认 |
 | **pywechat-libencode**（Msky，新项目） | 3.9.12.51 + **4.1.5.16~4.1.8.67** | 🟡 v0.0.2 早期（文档站公开，MIT） | **当前 4.x 公开生态最强**：协议级 API（libencode.dll 注入 + 微信自身协议栈）——收发全套/CDN 直传带 aes_key/auto_login/红包转账/朋友圈全套/**DB 句柄+SQL+decrypt_db**/语音转文字/防撤回。双模式（Python SDK + HTTP 回调，inject.exe 命令行注入）。依赖 pymem/uvicorn。**版本缺口：4.1.8.67 vs 本机 4.1.15.13（差 7 个小版本，需降级实测）**；PyPI 暂 404。对比：形态 ≈「WCFerry 注入壳 + PadLocal 级协议深度」，若 4.1.8.67 能登录即解锁收发实时 |
 | wxauto / wxauto4（cluic） | 3.9.x / 4.0.x~4.1.8（免费版）| ⚠️ 活跃（4.1.x 兼容有波动报告） | 另有付费增强版 wxautox4（支持 4.1.9~4.1.15.13，SiverWXbot_plus 生产验证）。**2026-09-26 关键实测（本机 4.1.15.13）**：主窗口 UIA 树为空——腾讯将主界面迁移至自绘表面（MMUIRenderSubWindowHW，顶层类名改 Qt51514QWindowIcon），免费 UIA 方案（pywechat/wxauto4）在 4.1.15 上**确认失效**，控件树不存在无法补丁；商业版 wxautox4 为唯一例外（疑用图像识别） |
 | wechat-automation-api | 4.0+ | ➖ 小众 | Flask + UIA 封装 HTTP，偏发送 |
