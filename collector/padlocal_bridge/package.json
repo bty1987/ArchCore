@@ -7,7 +7,6 @@
   "dependencies": {
     "@grpc/grpc-js": "1.8.22",
     "padlocal-client-ts": "^0.5.3",
-    "wechatferry": "^0.0.26",
     "wechaty": "^1.20.2",
     "wechaty-puppet-service": "^1.19.9"
   },

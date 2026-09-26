@@ -17,7 +17,6 @@ dev = ["pytest>=8", "ruff>=0.6"]
 # 主轨真实数据源（需 Windows + 已登录微信环境，M0 验证项；不入默认依赖）
 wxdump = ["pywxdump"]
 # 实时轨（需 32 位 Python + 微信 3.9.12；默认不装）
-wcf = ["wcferry"]
 
 [project.scripts]
 archcore-collector = "archcore_collector.main:run"

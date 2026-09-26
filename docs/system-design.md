@@ -34,7 +34,7 @@
 │  └──────────────┘   （主轨：历史+定时增量）   │  │ (PyWxDump/WDA 封装)    │  │          │
 │                                              │  └────────────────────────┘  │          │
 │  ┌──────────────┐   DLL 消息回调（可选）      │  ┌────────────────────────┐  │          │
-│  │ WCF 注入 DLL │ ──────────────────────▶   │  │ wcf_worker（可摘除）    │  │          │
+│  │（实时轨：PadLocal 桥接，见 padlocal_worker）│  │                        │  │          │
 │  └──────────────┘                           │  └───────────┬────────────┘  │          │
 │                                             │      统一变换 transform       │          │
 │                                             │      （标准化+指纹去重）       │          │
@@ -64,7 +64,7 @@
 
 | 层 | 选型 | 理由 |
 |---|---|---|
-| 采集端 | Python 3.10+ | PyWxDump / WeChatDataAnalysis / wcferry SDK 均为 Python 生态，无第二选择 |
+| 采集端 | Python 3.10+ | PyWxDump / WeChatDataAnalysis 生态（4.x 直连解密已自研实现） |
 | 调度 | APScheduler | 单进程内覆盖定时增量、预警巡检、聚合任务，免额外组件 |
 | 服务端 | FastAPI + SQLAlchemy | 与采集端同语言，一套技术栈两个人力成本减半；自动生成 OpenAPI 文档 |
 | 存储 | SQLite（WAL 模式）+ FTS5 | 10 万级消息量完全够用；中文检索直接按 **trigram 分词**设计（SQLite 3.34+ 原生支持；unicode61 对中文等于整段单 token，不可用）；零部署 |
@@ -154,8 +154,6 @@ collector/
 ├── decrypt_worker/          # 主轨
 │   ├── full_import.py       # 全量历史导入（M0 验证对象）
 │   └── incr_sync.py         # 定时增量解密（默认每小时）
-├── wcf_worker/              # 实时轨（feature flag 控制，可整体摘除）
-│   └── callback.py          # wcferry 消息回调 → 标准化
 ├── transform/               # 统一变换：白名单过滤 → 原始结构 → 标准 message
 │   ├── filter.py            # 会话白名单过滤（F1-6：非业务会话不出微信数据目录）
 │   └── normalize.py         # 原始结构标准化（指纹由 server 端计算）
@@ -264,9 +262,9 @@ M0/MVP：单机 all-in-one（WeChat + collector + server + SQLite + web 静态�
 
 | 里程碑 | 本设计中的交付物 |
 |---|---|
-| M0 技术验证 | collector/decrypt_worker/full_import.py 原型（PyWxDump 跑通 + 字段映射表确认）；wcf_worker 最小回调 demo（含 32 位匹配确认）；**4.x 解密兜底验证（WeChatDataAnalysis）**；群成员可得性与撤回/红包残留抽查（调研报告第九节 #6~#9）；产出「字段质量评估」结论回填 PRD/本设计 |
+| M0 技术验证 | collector/decrypt_worker/full_import.py 原型（PyWxDump 跑通 + 字段映射表确认）；实时轨选型评估（WCFerry 路线已移除，见调研报告第五节）；**4.x 解密兜底验证（WeChatDataAnalysis）**；群成员可得性与撤回/红包残留抽查（调研报告第九节 #6~#9）；产出「字段质量评估」结论回填 PRD/本设计 |
 | MVP | 全部 P0 需求对应模块：ingest + mapping + 会话浏览器 + 活跃度分析 + 基础页面；单机部署脚本 |
-| V1 | wcf_worker 正式启用（视 M0 结论）+ 触发型/巡检型预警 + 通知渠道 + 健康度 + RBAC 完整版 |
+| V1 | 实时轨按 M0 结论选型（4.x 解密主轨已验证；WCFerry 路线已评估并移除，见调研报告）+ 触发型/巡检型预警 + 通知渠道 + 健康度 + RBAC 完整版 |
 | V2 | AI 摘要（F4-6，模型选型届时评估）、语音转写、发送模块（谨慎决策） |
 
 ---

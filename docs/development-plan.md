@@ -22,7 +22,7 @@ Monorepo，四工程一目录，各自独立依赖清单：
 ArchCore/
 ├── docs/                          # 文档（共 8 份，见 README 索引）
 ├── collector/                     # 采集端 [Python]
-│   ├── pyproject.toml             # 依赖：apscheduler httpx pywxdump wcferry(可选)
+│   ├── pyproject.toml             # 依赖：apscheduler httpx pywxdump(可选)
 │   ├── config.example.yaml
 │   ├── src/archcore_collector/
 │   │   ├── main.py                # 入口：加载配置 → 启动 scheduler
@@ -30,8 +30,6 @@ ArchCore/
 │   │   ├── decrypt_worker/
 │   │   │   ├── full_import.py     # [M0] 全量历史导入原型
 │   │   │   └── incr_sync.py       # 定时增量（水位管理）
-│   │   ├── wcf_worker/
-│   │   │   └── callback.py        # [M0 demo → V1 正式] WCF 消息回调
 │   │   ├── transform/
 │   │   │   ├── filter.py          # 会话白名单过滤（F1-6，数据不出微信目录）
 │   │   │   └── normalize.py       # 原始结构 → 标准 message（指纹由 server 端计算）
@@ -44,7 +42,7 @@ ArchCore/
 │   ├── src/archcore_server/
 │   │   ├── main.py                # app 工厂 + 路由挂载 + jobs 启动
 │   │   ├── core/
-│   │   │   ├── config.py          # 环境/密钥/开关（wcf_enabled、send_enabled 默认 false）
+│   │   │   ├── config.py          # 环境/密钥/开关（send_enabled 默认 false）
 │   │   │   ├── security.py        # JWT + RBAC 依赖
 │   │   │   └── db.py              # engine/session（WAL、FTS5 初始化）
 │   │   ├── models/                # SQLAlchemy：chat_session/message/customer/...（唯一 schema 源）
@@ -113,10 +111,10 @@ ArchCore/
 | M0-01 | 装微信 3.9.12（关自动更新）+ 小号登录实测 | 登录成功/失败结论（PRD 第九节 #1#2） |
 | M0-02 | PyWxDump 全量解密跑通 | 解密库文件 + 消息/会话/联系人表清单 |
 | M0-03 | 字段映射评估：微信库字段 → 标准 message 模型 | 《字段映射与质量评估》笔记回填本仓库 docs/（含：媒体路径可达性、时间戳口径、群成员可获取性） |
-| M0-04 | wcferry 最小回调 demo（可登录则做） | 收到消息打印成功/失败结论 |
+| ~~M0-04~~ | ~~wcferry 最小回调 demo~~（已取消：WCFerry 路线移除，见调研报告） | —— |
 | M0-05 | 结论决策：实时轨启用 or 降级；4.x 兜底是否成立 | 更新 PRD/设计的对应开关与排期 |
 | M0-06 | 微信 4.x + WeChatDataAnalysis 解密验证（兜底路线） | 历史可导出 + 字段质量结论（调研报告 #6） |
-| M0-07 | WCF v39.5.x 与 32 位 3.9.12 位数匹配确认 | 注入与回调正常（调研报告 #7） |
+| ~~M0-07~~ | ~~WCF 位数匹配确认~~（已取消：WCFerry 路线移除） | —— |
 | M0-08 | 解密库群成员数据可得性抽查 | F2-5 可交付性结论（调研报告 #8） |
 | M0-09 | 撤回/红包/转账/系统消息残留情况 | PRD 3.3 消息边界口径结论（调研报告 #9） |
 

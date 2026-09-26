@@ -1,4 +1,4 @@
-"""调度入口：APScheduler 常驻（增量 + outbox 冲刷 + 可选 WCF 线程）。"""
+"""调度入口：APScheduler 常驻（增量 + outbox 冲刷）。"""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ import httpx
 from .decrypt_worker.incr_sync import run_incr_sync
 from .sender import Sender
 from .state import StateStore
-from .wcf_worker.callback import WcfWorker
 
 log = logging.getLogger(__name__)
 
@@ -41,9 +40,6 @@ def main_loop(settings) -> None:
     )
     sched.add_job(sender.flush, "interval", seconds=settings.schedule.flush_seconds, id="flush")
 
-    wcf = WcfWorker(settings, state)
-    wcf.start()
-
     supervisors = []
     if settings.padlocal.enabled and settings.padlocal.token:
         from .padlocal_worker import PadlocalSupervisor
@@ -53,13 +49,6 @@ def main_loop(settings) -> None:
             supervisors.append(pad_sup)
             log.info("padlocal 实时轨已并行启动（秒级），解密轨 %s 分钟/次兜底",
                      settings.schedule.incr_minutes)
-    if settings.wcferry.enabled:
-        from .padlocal_worker import WcferrySupervisor
-
-        wcf_sup = WcferrySupervisor(settings)
-        if wcf_sup.start():
-            supervisors.append(wcf_sup)
-            log.info("wcferry 实时轨已并行启动（PC Hook）")
 
     log.info(
         "collector 启动：增量 %s 分钟/次，冲刷 %s 秒/次",
@@ -71,7 +60,6 @@ def main_loop(settings) -> None:
     except (KeyboardInterrupt, SystemExit):
         pass
     finally:
-        wcf.stop()
         for sup in supervisors:
             sup.stop()
         state.close()

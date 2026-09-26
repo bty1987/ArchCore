@@ -32,11 +32,5 @@ padlocal:                  # 实时轨（可选，iPad 协议）：秒级推送�
   bridge: ./padlocal_bridge/padlocal_bridge.mjs
   allow_dm: true
 
-wcferry:                   # 实时轨（可选，PC Hook 3.9.2.23）：需旧版微信登录
-  enabled: false           # 登录绕过属灰色手段，风险最高，仅测试环境
-  node: node
-  bridge: ./padlocal_bridge/padlocal_bridge.mjs
-  allow_dm: true
 
-wcf_enabled: false         # 实时轨（依赖 M0 验证：3.9.12 登录 + 32 位匹配）
 send_enabled: false        # 永久 false：归档系统只收不发
