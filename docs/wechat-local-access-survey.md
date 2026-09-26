@@ -73,8 +73,8 @@ Wechaty 本体仍是活跃的开源对话机器人 SDK，核心价值在 Puppet�
 
 | 项目 | 微信版本 | 状态 | 备注 |
 |---|---|---|---|
-| wxhook（miloira） | 3.x 多版本 + **4.0.1.21~4.1.13.56** + 企微 5 版本 | ⚠️ GitHub 停更（重心转 pywechat，QQ 群分发） | **MIT 免费注入式 Hook**：收发消息/群管理/**DB 句柄+SQL**/OCR；Webhook 直推。与本项目差距：支持上限 4.1.13.56 vs 我们 4.1.15.13（需降级微信+实测登录）；免费平替 wxautox4 的候选 |
-| wxauto / wxauto4（cluic） | 3.9.x / 4.0.x~4.1 | ⚠️ 活跃（4.1.x 兼容有波动报告） | 另有付费增强版 wxautox4、wxauto-mcp。2026-09 评估：本项目（归档）排除 UI 方案；**但存在性证明更新**：SiverWXbot_plus（226★，活跃）基于 wxautox4 在微信 4.1.9~4.1.15.13 上生产级运行收+发——若需发送/实时能力，wxautox4 授权是当前唯一被验证的 4.x 个微通道（需付费+Python 3.10~3.13 独立环境） |
+| ~~wxhook（miloira）~~ | 3.x + 4.0.1.21~4.1.13.56 | ⚠️ GitHub 停更 | 已移除支持：3.9 登录被拒实测（faked_version 伪装 3.9.10/3.9.12.51/4.1.15.13 三档均无效——服务端校验非仅版本号）；4.x 需降级客户端 |
+| wxauto / wxauto4（cluic） | 3.9.x / 4.0.x~4.1.8（免费版）| ⚠️ 活跃（4.1.x 兼容有波动报告） | 另有付费增强版 wxautox4（支持 4.1.9~4.1.15.13，SiverWXbot_plus 生产验证）。**2026-09-26 关键实测（本机 4.1.15.13）**：主窗口 UIA 树为空——腾讯将主界面迁移至自绘表面（MMUIRenderSubWindowHW，顶层类名改 Qt51514QWindowIcon），免费 UIA 方案（pywechat/wxauto4）在 4.1.15 上**确认失效**，控件树不存在无法补丁；商业版 wxautox4 为唯一例外（疑用图像识别） |
 | wechat-automation-api | 4.0+ | ➖ 小众 | Flask + UIA 封装 HTTP，偏发送 |
 | GoodWeBot | RPA | ➖ 小众 | 偏 AI 机器人，归档相关性低 |
 
