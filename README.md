@@ -20,7 +20,8 @@
 | [docs/outbound-push-plan.md](docs/outbound-push-plan.md) | 主动推送消息方案 v0.2（默认永久只收不发；外发风险分级、工单管道与熔断的实施预案） |
 | [docs/compliance-plan.md](docs/compliance-plan.md) | 合规方案 v0.1（第三方个人信息告知、数据最小化、权限收敛、合同责任划分） |
 | [docs/test-plan.md](docs/test-plan.md) | 测试方案 v1.0（八层测试体系、46 个自动化用例清单、性能与冒烟、M0 真机验证项） |
-| [docs/local-deploy-guide.md](docs/local-deploy-guide.md) | 本机部署实操指南 v1.0（个人单机形态：fixture 跑通 → 微信 3.9.12 + pywxdump 真实归档 → 建档分析 → 备份排查） |
+| [docs/local-deploy-guide.md](docs/local-deploy-guide.md) | 本机部署实操指南 v1.1（个人单机形态：fixture 跑通 → 4.x 解密归档 → 建档分析 → 备份排查） |
+| [docs/retrospective-20260926.md](docs/retrospective-20260926.md) | 实战复盘与决策档案 v1.0（4.x 攻关时间线/决策档案/踩坑清单/生态地图/试错成本/方法论） |
 | [docs/product-scenarios.md](docs/product-scenarios.md) | 应用场景与商业定位分析（愿景素材，见文首交付边界说明） |
 
 ## 目录规划
