@@ -4,6 +4,7 @@ import {
   listUsers, createUser, updateUser, listMembers, createMember, deleteMember,
   listKeywords, createKeyword, deleteKeyword, listChannels, createChannel, testChannel,
   keywordStats,
+  listAuditLogs,
 } from "../api/client";
 import { api } from "../api/client";
 import { ElMessage } from "element-plus";
@@ -15,6 +16,7 @@ const keywords = ref<any[]>([]);
 const keywordHits = ref<Record<string, number>>({});
 const channels = ref<any[]>([]);
 const aiCfg = ref<any>({ api_base: "", api_key: "", model: "" });
+const auditLogs = ref<any[]>([]);
 
 const newUser = ref({ username: "", password: "", display_name: "", role: "sales" });
 const newMember = ref({ match_type: "wxid", match_value: "", display_name: "" });
@@ -32,6 +34,9 @@ async function load() {
     keywordHits.value = {};
   }
   try { channels.value = (await listChannels()).data; } catch { /* sales 无权限 */ }
+  try {
+    auditLogs.value = (await listAuditLogs({ limit: 100 })).data;
+  } catch { /* sales 无权限 */ }
   try {
     const all = await api.get("/settings");
     if (all.data?.ai) aiCfg.value = { api_base: "", api_key: "", model: "", ...all.data.ai };
@@ -171,6 +176,18 @@ async function test(id: number) {
             <el-button type="primary" @click="saveAi">保存</el-button>
           </el-form-item>
         </el-form>
+      </el-tab-pane>
+
+      <el-tab-pane label="审计日志" name="audit">
+        <el-table :data="auditLogs" size="small" max-height="520">
+          <el-table-column prop="id" label="#" width="70" />
+          <el-table-column prop="action" label="动作" width="150" />
+          <el-table-column prop="target" label="对象" width="180" />
+          <el-table-column label="明细" min-width="240">
+            <template #default="{ row }">{{ JSON.stringify(row.detail) }}</template>
+          </el-table-column>
+          <el-table-column prop="created_at" label="时间" width="160" />
+        </el-table>
       </el-tab-pane>
 
       <el-tab-pane label="通知渠道" name="channels">

@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import * as echarts from "echarts";
 import { listCustomers, customerOverview, listUnclaimed, claimSessions, listAlerts,
-         getCustomerSummary, generateCustomerSummary } from "../api/client";
+         getCustomerSummary, generateCustomerSummary, listSessions, exportSessionCsv } from "../api/client";
 import { ElMessage } from "element-plus";
 
 const route = useRoute();
@@ -18,6 +18,8 @@ const alerts = ref<any[]>([]);
 const summary = ref<any>({});
 const summaryDays = ref(7);
 const summarizing = ref(false);
+const activeTab = ref("overview");
+const customerSessions = ref<any[]>([]);
 const maxHour = computed(() => Math.max(1, ...(overview.value.active_hours || [])));
 const keywordHits = computed(() => overview.value.keyword_hits || []);
 
@@ -28,6 +30,7 @@ onMounted(async () => {
   overview.value = ov.data;
   alerts.value = (await listAlerts({ customer_id: cid })).data;
   summary.value = (await getCustomerSummary(cid)).data;
+  customerSessions.value = (await listSessions({ customer_id: cid })).data;
   const un = await listUnclaimed();
   unclaimed.value = un.data;
   if (chartEl.value) {
@@ -54,6 +57,16 @@ async function genSummary() {
   } finally {
     summarizing.value = false;
   }
+}
+
+async function exportSession(id: number) {
+  const resp = await exportSessionCsv(id);
+  const url = URL.createObjectURL(resp.data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `session-${id}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 async function claim() {
@@ -88,42 +101,84 @@ async function claim() {
           <div ref="chartEl" style="height: 260px" /></div>
       </el-col>
       <el-col :span="10">
-        <div class="card">
-          <h4>活跃时段（近 30 天）</h4>
-          <div style="display: flex; align-items: flex-end; gap: 2px; height: 90px">
-            <div v-for="(cnt, h) in overview.active_hours || []" :key="h"
-                 style="flex: 1; background: #60a5fa; border-radius: 3px 3px 0 0"
-                 :title="h + '时：' + cnt + ' 条'"
-                 :style="{ height: Math.round((cnt / maxHour) * 100) + '%', minHeight: '3px',
-                           opacity: cnt ? 1 : 0.25 }" />
-          </div>
-          <div style="display: flex; justify-content: space-between; color: #94a3b8; font-size: 11px">
-            <span>0</span><span>6</span><span>12</span><span>18</span><span>23</span>
-          </div>
-          <h4 style="margin-top: 14px">消息类型分布</h4>
-          <div style="display: flex; flex-wrap: wrap; gap: 8px">
-            <el-tag v-for="(cnt, mt) in overview.type_distribution || {}" :key="mt">
-              {{ mt }}：{{ cnt }}
-            </el-tag>
-            <span v-if="!Object.keys(overview.type_distribution || {}).length"
-                  style="color: #94a3b8; font-size: 13px">暂无数据</span>
-          </div>
-          <h4 style="margin-top: 14px">关键词命中（30 天）</h4>
-          <el-table :data="keywordHits" size="small" v-if="keywordHits.length">
-            <el-table-column prop="word" label="词条" />
-            <el-table-column prop="category" label="类别" width="80" />
-            <el-table-column prop="count" label="命中" width="70" />
-          </el-table>
-          <div v-else style="color: #94a3b8; font-size: 13px">暂无命中</div>
-          <h4 style="margin-top: 14px">预警时间线</h4>
-          <el-timeline style="padding-left: 4px">
-            <el-timeline-item v-for="a in alerts.slice(0, 6)" :key="a.id"
-                              :timestamp="String(a.created_at).slice(0, 16)"
-                              :type="a.level === 'red' ? 'danger' : a.level === 'orange' ? 'warning' : 'primary'">
-              {{ a.rule_code }}（{{ a.level }}）
-            </el-timeline-item>
-          </el-timeline>
-          <div v-if="!alerts.length" style="color: #94a3b8; font-size: 13px">暂无预警</div>
+        <div class="card" style="padding: 0">
+          <el-tabs v-model="activeTab" style="padding: 4px 14px 14px">
+            <el-tab-pane label="分析" name="overview">
+              <h4>活跃时段（近 30 天）</h4>
+              <div style="display: flex; align-items: flex-end; gap: 2px; height: 80px">
+                <div v-for="(cnt, h) in overview.active_hours || []" :key="h"
+                     style="flex: 1; background: #60a5fa; border-radius: 3px 3px 0 0"
+                     :title="h + '时：' + cnt + ' 条'"
+                     :style="{ height: Math.round((cnt / maxHour) * 100) + '%', minHeight: '3px',
+                               opacity: cnt ? 1 : 0.25 }" />
+              </div>
+              <div style="display: flex; justify-content: space-between; color: #94a3b8; font-size: 11px">
+                <span>0</span><span>6</span><span>12</span><span>18</span><span>23</span>
+              </div>
+              <h4 style="margin-top: 14px">消息类型分布</h4>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px">
+                <el-tag v-for="(cnt, mt) in overview.type_distribution || {}" :key="mt">
+                  {{ mt }}：{{ cnt }}
+                </el-tag>
+                <span v-if="!Object.keys(overview.type_distribution || {}).length"
+                      style="color: #94a3b8; font-size: 13px">暂无数据</span>
+              </div>
+              <h4 style="margin-top: 14px">标签汇总</h4>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px">
+                <el-tag v-for="t in overview.tag_summary || []" :key="t.tag" type="warning">
+                  #{{ t.tag }}（{{ t.count }}）
+                </el-tag>
+                <span v-if="!(overview.tag_summary || []).length"
+                      style="color: #94a3b8; font-size: 13px">暂无标注——在消息检索中给消息打标签</span>
+              </div>
+            </el-tab-pane>
+
+            <el-tab-pane label="会话" name="sessions">
+              <el-table :data="customerSessions" size="small">
+                <el-table-column label="会话" min-width="140">
+                  <template #default="{ row }">{{ row.name || row.wx_id }}</template>
+                </el-table-column>
+                <el-table-column prop="message_count" label="消息" width="70" />
+                <el-table-column label="操作" width="140">
+                  <template #default="{ row }">
+                    <el-button link type="primary"
+                               @click="router.push({ path: '/sessions', query: { session_id: row.id } })">
+                      检索
+                    </el-button>
+                    <el-button link @click="exportSession(row.id)">导出</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </el-tab-pane>
+
+            <el-tab-pane label="预警" name="alerts">
+              <el-timeline style="padding-left: 4px; margin-top: 8px">
+                <el-timeline-item v-for="a in alerts" :key="a.id"
+                                  :timestamp="String(a.created_at).slice(0, 16)"
+                                  :type="a.level === 'red' ? 'danger' : a.level === 'orange' ? 'warning' : 'primary'">
+                  {{ a.rule_code }}（{{ a.level }}）
+                </el-timeline-item>
+              </el-timeline>
+              <div v-if="!alerts.length" style="color: #94a3b8; font-size: 13px">暂无预警</div>
+            </el-tab-pane>
+
+            <el-tab-pane label="AI 摘要" name="ai">
+              <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px">
+                <el-select v-model="summaryDays" style="width: 110px">
+                  <el-option :value="7" label="近 7 天" /><el-option :value="14" label="近 14 天" />
+                  <el-option :value="30" label="近 30 天" />
+                </el-select>
+                <el-button type="primary" :loading="summarizing" @click="genSummary">生成摘要</el-button>
+                <span v-if="summary.created_at" style="color:#94a3b8; font-size:12px">
+                  {{ String(summary.created_at).slice(0, 16) }}
+                </span>
+              </div>
+              <div v-if="summary.content" style="white-space: pre-wrap; line-height: 1.7">{{ summary.content }}</div>
+              <div v-else style="color:#94a3b8; font-size:13px">
+                尚未生成。需先在 系统设置→AI 配置 填写 OpenAI 兼容接口。
+              </div>
+            </el-tab-pane>
+          </el-tabs>
         </div>
       </el-col>
     </el-row>

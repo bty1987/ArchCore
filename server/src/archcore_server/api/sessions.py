@@ -19,6 +19,7 @@ router = APIRouter(prefix="/sessions", tags=["sessions"])
 def list_sessions(
     claimed: bool | None = None,
     type: str | None = None,
+    customer_id: int | None = None,
     identity: dict = Depends(get_identity),
     db: Session = Depends(get_session),
 ):
@@ -27,6 +28,8 @@ def list_sessions(
         query = query.where(ChatSession.customer_id.is_(None))
     elif claimed is True:
         query = query.where(ChatSession.customer_id.is_not(None))
+    if customer_id is not None:
+        query = query.where(ChatSession.customer_id == customer_id)
     if type:
         query = query.where(ChatSession.type == type)
     if identity["role"] == "sales":

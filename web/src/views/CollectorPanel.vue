@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import {
-  ingestHealth, listAuditLogs, listSessions,
+  ingestHealth, listSessions,
   getWhitelist, setAllowAll, addWhitelistRule, deleteWhitelistRule,
 } from "../api/client";
 import { ElMessage } from "element-plus";
 
 const health = ref<any>({});
-const logs = ref<any[]>([]);
 const sessions = ref<any[]>([]);
 const rules = ref<any[]>([]);
 const allowAll = ref(false);
@@ -26,7 +25,6 @@ const shownSessions = computed(() => {
 
 async function load() {
   health.value = (await ingestHealth()).data;
-  logs.value = (await listAuditLogs({ limit: 30 })).data;
   sessions.value = (await listSessions()).data;
   const wl = (await getWhitelist()).data;
   rules.value = wl.rules;
@@ -149,19 +147,6 @@ function inWhitelist(wxId: string) {
         白名单保存在服务端，采集端每轮同步前自动拉取；修改后下一个采集周期生效。
         未入库的会话（如新配置的群）需等微信同步消息后才会出现消息量。
       </p>
-    </div>
-
-    <div class="card">
-      <h4>最近操作日志（审计）</h4>
-      <el-table :data="logs" size="small">
-        <el-table-column prop="id" label="#" width="70" />
-        <el-table-column prop="action" label="动作" width="140" />
-        <el-table-column prop="target" label="对象" width="180" />
-        <el-table-column label="明细" min-width="220">
-          <template #default="{ row }">{{ JSON.stringify(row.detail) }}</template>
-        </el-table-column>
-        <el-table-column prop="created_at" label="时间" width="160" />
-      </el-table>
     </div>
   </div>
 </template>

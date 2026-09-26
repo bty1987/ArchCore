@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from "vue";
+import { useRoute } from "vue-router";
 import { listSessions, searchMessages, messageContext, exportSessionCsv,
-         addMessageTag, deleteMessageTag } from "../api/client";
+         addMessageTag, deleteMessageTag, listCustomers } from "../api/client";
+
+const route = useRoute();
 
 const sessions = ref<any[]>([]);
 const sessionId = ref<number | null>(null);
@@ -12,6 +15,8 @@ const nextCursor = ref<string | null>(null);
 const contextMsg = ref<any[] | null>(null);
 const dateRange = ref<[string, string] | null>(null);
 const senderWxid = ref("");
+const customerId = ref<number | null>(null);
+const customers = ref<any[]>([]);
 const tagDialog = ref(false);
 const tagMsg = ref<any>(null);
 const tagInput = ref("");
@@ -32,6 +37,13 @@ function iconOf(m: any) {
 onMounted(async () => {
   const { data } = await listSessions();
   sessions.value = data;
+  try {
+    customers.value = (await listCustomers()).data;
+  } catch { /* ignore */ }
+  if (route.query.session_id) {
+    sessionId.value = Number(route.query.session_id);
+    load();
+  }
 });
 
 watch([sessionId, senderType], load, { deep: true });
@@ -43,6 +55,7 @@ async function load(append = false) {
   if (senderType.value) params.sender_type = senderType.value;
   if (append && nextCursor.value) params.cursor = nextCursor.value;
   if (senderWxid.value) params.sender_wxid = senderWxid.value;
+  if (customerId.value) params.customer_id = customerId.value;
   if (dateRange.value) {
     params.from_ts = dateRange.value[0] + " 00:00:00";
     params.to_ts = dateRange.value[1] + " 23:59:59";
@@ -88,6 +101,10 @@ async function showContext(row: any) {
 <template>
   <div>
     <div class="card" style="display: flex; gap: 12px">
+      <el-select v-model="customerId" placeholder="按客户" style="width: 160px" clearable
+                 @change="sessionId = null; load()">
+        <el-option v-for="c in customers" :key="c.id" :label="c.name" :value="c.id" />
+      </el-select>
       <el-select v-model="sessionId" placeholder="全部会话" style="width: 240px" filterable clearable>
         <el-option v-for="s in sessions" :key="s.id" :label="s.name || s.wx_id" :value="s.id" />
       </el-select>

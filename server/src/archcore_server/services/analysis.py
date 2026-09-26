@@ -205,6 +205,54 @@ def compute_reply_latencies(db: Session, session_id: int, days: int = 14) -> lis
     return latencies
 
 
+def insights(db: Session) -> dict:
+    """洞察分析聚合：健康分布/客户排行/词库命中/消息结构/响应时效排行。"""
+    # 健康分布
+    health = db.execute(
+        text(
+            "SELECT health_level, COUNT(*) FROM customer "
+            "WHERE health_level IS NOT NULL GROUP BY health_level"
+        )
+    ).all()
+    # 客户排行（近 30 天消息量）
+    customer_rank = db.execute(
+        text(
+            "SELECT c.id, c.name, c.health_score, COALESCE(SUM(md.total),0) AS total "
+            "FROM customer c LEFT JOIN chat_session s ON s.customer_id = c.id "
+            "LEFT JOIN message_daily md ON md.session_id = s.id "
+            "GROUP BY c.id ORDER BY total DESC LIMIT 10"
+        )
+    ).all()
+    # 响应时效排行（有会话的客户 P50）
+    rank = []
+    for cid, name, score, total in customer_rank:
+        overview = customer_overview(db, cid)
+        rank.append({
+            "customer_id": cid, "name": name, "health_score": score,
+            "total": int(total), "p50": overview["response"]["p50_minutes"],
+        })
+    # 消息类型结构（全库）
+    types = db.execute(text("SELECT msg_type, COUNT(*) FROM message GROUP BY msg_type")).all()
+    # 词库命中（复用 keyword 统计）
+    from ..models import Keyword
+
+    kw_hits = []
+    for kw in db.scalars(select(Keyword).where(Keyword.enabled.is_(True))).all():
+        cnt = db.execute(
+            text("SELECT COUNT(*) FROM message WHERE content LIKE :pat"),
+            {"pat": f"%{kw.word}%"},
+        ).scalar()
+        if cnt:
+            kw_hits.append({"word": kw.word, "category": kw.category, "count": int(cnt)})
+    kw_hits.sort(key=lambda x: -x["count"])
+    return {
+        "health_distribution": {lvl: int(n) for lvl, n in health},
+        "customer_rank": rank,
+        "type_distribution": {mt: int(c) for mt, c in types},
+        "keyword_hits": kw_hits[:15],
+    }
+
+
 def dashboard(db: Session) -> dict:
     today = date.today().isoformat()
     total_customers = db.scalar(select(func.count()).select_from(Customer)) or 0

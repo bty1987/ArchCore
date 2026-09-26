@@ -262,6 +262,13 @@ def test_channel(
     return {"status": status_, "error": error}
 
 
+@router.get("/analytics/insights")
+def analytics_insights(identity: dict = Depends(user_identity), db: Session = Depends(get_session)):
+    """洞察分析聚合：健康分布/客户排行/消息结构/词库命中。"""
+    current_user(identity, db)
+    return analysis.insights(db)
+
+
 @router.get("/analytics/keywords/stats")
 def keyword_stats(days: int = Query(30, le=365), identity: dict = Depends(user_identity),
                   db: Session = Depends(get_session)):

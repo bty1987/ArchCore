@@ -48,6 +48,7 @@ export const messageContext = (id: number, before = 20, after = 20) =>
 export const dashboard = () => api.get("/dashboard");
 export const trends = (params?: object) => api.get("/analytics/trends", { params });
 export const customerOverview = (id: number) => api.get(`/analytics/customers/${id}/overview`);
+export const getInsights = () => api.get("/analytics/insights");
 export const keywordStats = (days = 30) =>
   api.get("/analytics/keywords/stats", { params: { days } });
 export const exportSessionCsv = (id: number) =>
