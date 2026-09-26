@@ -22,6 +22,8 @@
 | [docs/test-plan.md](docs/test-plan.md) | 测试方案 v1.0（八层测试体系、46 个自动化用例清单、性能与冒烟、M0 真机验证项） |
 | [docs/local-deploy-guide.md](docs/local-deploy-guide.md) | 本机部署实操指南 v1.1（个人单机形态：fixture 跑通 → 4.x 解密归档 → 建档分析 → 备份排查） |
 | [docs/retrospective-20260926.md](docs/retrospective-20260926.md) | 实战复盘与决策档案 v1.0（4.x 攻关时间线/决策档案/踩坑清单/生态地图/试错成本/方法论） |
+| [docs/customer-os/](docs/customer-os/) | Customer OS 产品方案五件套（竞品拆解/定位/PRD/架构/90天路线，2026-09 方向研究） |
+| [docs/customer-os-analysis.md](docs/customer-os-analysis.md) | Customer OS 衔接分析 v1.0（与 ArchCore 对比/领域模型映射/三条融合路径/决策点） |
 | [docs/product-scenarios.md](docs/product-scenarios.md) | 应用场景与商业定位分析（愿景素材，见文首交付边界说明） |
 
 ## 目录规划
