@@ -3,6 +3,8 @@
 > 形态：一台 Windows 主机承载 微信客户端 + collector + server + SQLite + web 静态产物。
 > V1 平台可迁内网 Linux（collector 留在 Windows），见运维规划 2.1。
 
+> ⚠️ **版本口径更新（2026-10-01 标注，正式改写待 Windows 侧会话）**：本文写作于 3.9.12 时代。9-25~26 攻关后版本决策已变——**微信客户端冻结 4.1.8.67**（3.9 整代登录被拒，伪装无效），采集主轨=**自研解密管线（scripts/decrypt_wechat4.py，双引擎密钥+逐库派生+WAL 合并）**，非 pywxdump。本文凡"3.9.12"读作"4.1.8.67"、"pywxdump"读作"自研解密轨"，具体 config 键名以 collector/config.example.yaml 与复盘档案（docs/retrospective-20260926.md）为准。备机恢复的 RTO 流程同理由"装 3.9.12"改为"装 4.1.8.67 离线包"。
+
 ## 0. 前置条件
 
 - [ ] Windows 10/11 x64 主机，不休眠、不锁屏（RDP 断开策略已调整）
