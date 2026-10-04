@@ -24,7 +24,7 @@
 | [docs/retrospective-20260926.md](docs/retrospective-20260926.md) | 实战复盘与决策档案 v1.0（4.x 攻关时间线/决策档案/踩坑清单/生态地图/试错成本/方法论） |
 | [docs/customer-os/](docs/customer-os/) | Customer OS 产品方案五件套（竞品拆解/定位/PRD/架构/90天路线，2026-09 方向研究） |
 | [docs/customer-os-analysis.md](docs/customer-os-analysis.md) | Customer OS 衔接分析 v1.0（与 ArchCore 对比/领域模型映射/三条融合路径/决策点） |
-| [docs/productization-gap-analysis.md](docs/productization-gap-analysis.md) | 产品化差距分析 v1.0（四层差距盘点：交付力/支撑体系/合规/售前材料，P0 补资料清单与 6~8 周节奏） |
+| [docs/productization-gap-analysis.md](docs/productization-gap-analysis.md) | 产品化差距分析 v1.1（四层差距盘点：交付力/支撑体系/合规/售前材料，P0 清单现状标注与 6~8 周节奏） |
 | [docs/product-scenarios.md](docs/product-scenarios.md) | 应用场景与商业定位分析（愿景素材，见文首交付边界说明） |
 | [deploy/交付工具箱/](deploy/交付工具箱/) | 交付工程化：客户交付档案模板（版本冻结登记/账号台账/上线检查/验收签字）+ 媒体本体归档攻关任务卡（2026-10-01） |
 | [docs/合规文件包/](docs/合规文件包/) | 入群告知与员工知情话术模板 + 合同条款模板（角色/数据归属/账号风险/版本冻结/责任上限；待法务复核） |
