@@ -46,3 +46,6 @@ collector/padlocal_bridge/package-lock.json
 
 # 离线安装包（微信旧版/工具）
 offline/
+
+# RE 逆向研究副线产物(内部,不入公开仓库——红线 1)
+research/

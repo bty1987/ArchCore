@@ -168,7 +168,20 @@ chatgpt-on-wechat（29.8k★，支持 wcferry 通道）、dify-on-wechat、LangB
 
 验证成本约半天起步 + 1~2 周观察期。#1~#4 回答「登录窗口是否仍开」与「回调数据是否满足归档完整性」两个生死问题；#6~#9 为 v1.1 评审新增，均属验证非开发，用于确认**降级退路真实存在**——这些项不通过时，其余项的「通过」不再等于风险解除。
 
-## 十、资料来源（节选）
+## 十、逆向研究副线：静态结构侦察首轮结论（2026-10-12）
+
+> 定位与第六节「放弃 Hook 自研」决策一致：本副线只用**被动静态分析**理解 4.x 内部结构、消除对生态工具的黑盒依赖，**不构成接入或发送路线**；工作产物（探针脚本与地址级结论）留本地 `research/`（已 gitignore，不入公开仓库），本节只记方法论级结论（红线 1）。
+
+工具：GitHub morluto/rea（REA, 112k★ MIT）生态 idea + 自写 Python（pefile/capstone）探针；8GB 内存约束下不跑全量反汇编，走「字符串外科手术」（字符串 → RIP 相对交叉引用 → 函数定位 → 注解反汇编）。目标 4.1.8.67。
+
+首轮四点结论：
+
+1. **客户端未加壳且为 RelWithDebInfo 构建**——协议面静态可见性远好于预期：服务端命令面（CGI reqid 表）、protobuf 消息名（SendMsgRequestNew 族）、传输层 mars/ilink 的 RTTI 类名均明文可枚举；
+2. **第五节侦察「不存在可调用能力接口」的结论不变**：导出表仍无业务能力函数；可见的是「协议结构」而非「可调用接口」，调用仍需注入 + 对象实例 + 版本锚定——研究价值大于工程价值，不改变「微信写、我们收」主轨；
+3. 方法论资产已沉淀：交叉引用扫描 + 注解反汇编在 8GB 内存可跑（106MB 代码段单遍约 1 分钟）；Ghidra 12.1.4 + JDK 21 已就位，后续做「免全量分析的外科手术式反编译」；
+4. 误报教训入档：立即数扫描须限定 `mov reg, imm32` 指令形态（裸 dword 模式会命中条件跳转位移）；reqid 由命令名映射表运行时解析，不以立即数出现在业务代码旁。
+
+## 十一、资料来源（节选）
 
 - https://github.com/lich0821/WeChatFerry（主仓库）｜ https://developer.cloud.tencent.com（WeChatFerry FAQ v39.0.14）｜ https://bbs.kanxue.com（原理逆向分析）
 - https://github.com/wechaty/wechaty-puppet-xp ｜ https://wechaty.js.org（Puppet Providers 文档）
