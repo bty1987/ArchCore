@@ -4,13 +4,15 @@ from tests.conftest import ingest, msg
 
 
 def _seed(client, admin_headers):
+    # ts 必须相对 now:摘要窗口是「近 N 天」,硬编码日期会在翻月后炸弹(2026-10 实锤)
+    from datetime import datetime, timedelta
+    t_recent = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
     c = client.post("/api/v1/customers", headers=admin_headers,
                     json={"name": "标签客户", "owner_user_id": 1}).json()
     ingest(client, [
-        msg(svr_id="t1", sender="wxid_outside", content="明天可以报价吗",
-            ts="2026-09-22 10:00:00"),
+        msg(svr_id="t1", sender="wxid_outside", content="明天可以报价吗", ts=t_recent),
         msg(svr_id="t2", sender="wxid_collector", content="可以，上午发您",
-            ts="2026-09-22 10:05:00"),
+            ts=(datetime.utcnow() - timedelta(days=1, minutes=-5)).strftime("%Y-%m-%d %H:%M:%S")),
     ])
     sessions = client.get("/api/v1/sessions", params={"claimed": False},
                           headers=admin_headers).json()

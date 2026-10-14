@@ -11,7 +11,8 @@ def _seed_and_claim(client, admin_headers):
     c = client.post(
         "/api/v1/customers", headers=admin_headers, json={"name": "分析客户", "owner_user_id": 1}
     ).json()
-    base = datetime.utcnow().replace(microsecond=0) - timedelta(days=1)
+    # 固定到 10 点档:UTC 午夜前 1 小时运行时 +1h 会跨日(2026-10-15 实锤的时间炸弹)
+    base = (datetime.utcnow() - timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)
     ingest(
         client,
         [
