@@ -23,6 +23,7 @@ export const useAuth = defineStore("auth", {
       const meResp = await me();
       this.username = meResp.data.username;
       localStorage.setItem("archcore_username", this.username);
+      return data; // 含 must_change_password(P0 #9)
     },
     logout() {
       this.token = "";

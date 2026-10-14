@@ -3,6 +3,7 @@ import { useAuth } from "./stores/auth";
 
 const routes = [
   { path: "/login", component: () => import("./views/Login.vue"), meta: { public: true } },
+  { path: "/change-password", component: () => import("./views/ChangePassword.vue") },
   { path: "/", redirect: "/dashboard" },
   { path: "/dashboard", component: () => import("./views/Dashboard.vue") },
   { path: "/customers", component: () => import("./views/CustomerList.vue") },

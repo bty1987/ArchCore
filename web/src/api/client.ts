@@ -23,6 +23,8 @@ api.interceptors.response.use(
 export const login = (username: string, password: string) =>
   api.post("/auth/login", { username, password });
 export const me = () => api.get("/auth/me");
+export const changePassword = (oldPassword: string, newPassword: string) =>
+  api.post("/auth/change-password", { old_password: oldPassword, new_password: newPassword });
 
 // —— 客户/会话 ——
 export const listCustomers = (params?: object) => api.get("/customers", { params });

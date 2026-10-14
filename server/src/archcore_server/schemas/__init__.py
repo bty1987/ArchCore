@@ -17,6 +17,12 @@ class TokenOut(BaseModel):
     token: str
     role: str
     display_name: str
+    must_change_password: bool = False
+
+
+class ChangePasswordIn(BaseModel):
+    old_password: str
+    new_password: str = Field(min_length=8, max_length=128)
 
 
 class MeOut(BaseModel):
