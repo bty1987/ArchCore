@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import {
-  ingestHealth, listSessions,
+  ingestHealth, listSessions, pipelineStats,
   getWhitelist, setAllowAll, addWhitelistRule, deleteWhitelistRule,
 } from "../api/client";
 import { ElMessage } from "element-plus";
 
 const health = ref<any>({});
+const pipe = ref<any>({});
 const sessions = ref<any[]>([]);
 const rules = ref<any[]>([]);
 const allowAll = ref(false);
@@ -25,6 +26,7 @@ const shownSessions = computed(() => {
 
 async function load() {
   health.value = (await ingestHealth()).data;
+  pipe.value = (await pipelineStats()).data;
   sessions.value = (await listSessions()).data;
   const wl = (await getWhitelist()).data;
   rules.value = wl.rules;
@@ -81,8 +83,41 @@ function inWhitelist(wxId: string) {
         </el-descriptions-item>
         <el-descriptions-item label="同步时间">{{ health.last_sync?.at || "-" }}</el-descriptions-item>
         <el-descriptions-item label="已归档消息数">{{ health.message_count ?? "-" }}</el-descriptions-item>
+      </el-descriptions>
+    </div>
+    <div class="card">
+      <h4>管道仪表（近 30 天同步 / 近 7 天消息量）</h4>
+      <el-row :gutter="12">
+        <el-col :span="5"><div class="pipe-kpi">
+          <div class="k">同步成功率</div>
+          <div class="v num-serif">{{ pipe.sync_success_rate ?? "-" }}<em>%</em></div>
+          <div class="s">{{ pipe.sync_total ?? 0 }} 次 · 失败 {{ pipe.sync_failed ?? 0 }}</div>
+        </div></el-col>
+        <el-col :span="5"><div class="pipe-kpi">
+          <div class="k">平均耗时</div>
+          <div class="v num-serif">{{ pipe.sync_avg_seconds ?? "-" }}<em>s</em></div>
+          <div class="s">含解密与上报</div>
+        </div></el-col>
+        <el-col :span="7"><div class="pipe-kpi">
+          <div class="k">最近成功</div>
+          <div class="s" style="margin-top:6px">{{ pipe.last_success?.at || "-" }}（{{ pipe.last_success?.type || "-" }}）</div>
+        </div></el-col>
+        <el-col :span="7"><div class="pipe-kpi">
+          <div class="k">最近失败</div>
+          <div class="s" style="margin-top:6px">{{ pipe.last_failed?.at || "无" }}<template v-if="pipe.last_failed"> · {{ pipe.last_failed.log }}</template></div>
+        </div></el-col>
+      </el-row>
+      <div v-if="(pipe.messages_daily || []).length" style="display:flex; align-items:flex-end; gap:3px; height:64px; margin-top:14px">
+        <div v-for="d in pipe.messages_daily" :key="d.date" class="pipe-bar"
+             :title="d.date + ': ' + d.total"
+             :style="{ height: Math.max(6, (d.total / Math.max(...pipe.messages_daily.map((x: any) => x.total || 1))) * 100) + '%' }" />
+      </div>
+      <div v-else style="color:#94a3b8; font-size:13px; margin-top:10px">暂无每日消息量（等待聚合任务）</div>
+    </div>
+    <div class="card">
+      <el-descriptions :column="3" border>
         <el-descriptions-item label="版本冻结" :span="2">
-          微信 3.9.12（32 位）+ 采集工具版本组合已在部署时登记；只评估不升级
+          微信 4.1.8.67（版本冻结）+ 采集工具版本组合已在部署时登记；只评估不升级
         </el-descriptions-item>
       </el-descriptions>
     </div>
@@ -150,3 +185,13 @@ function inWhitelist(wxId: string) {
     </div>
   </div>
 </template>
+
+<style scoped>
+.pipe-kpi { background: var(--paper-deep, #f3efe6); border: 1px solid var(--rule, #dfd8c7);
+           border-radius: 4px; padding: 10px 12px; height: 100%; }
+.pipe-kpi .k { font-size: 12px; color: var(--ink-3, #6e675c); }
+.pipe-kpi .v { font-family: var(--serif, serif); font-size: 26px; font-weight: 600; color: var(--ink, #211d19); }
+.pipe-kpi .v em { font-style: normal; font-size: 13px; color: var(--ink-3, #6e675c); }
+.pipe-kpi .s { font-size: 12px; color: var(--ink-3, #6e675c); }
+.pipe-bar { flex: 1; background: var(--accent, #c15f3c); border-radius: 2px 2px 0 0; opacity: .8; }
+</style>

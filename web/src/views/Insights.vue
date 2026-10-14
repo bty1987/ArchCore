@@ -1,21 +1,40 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import * as echarts from "echarts";
-import { getInsights } from "../api/client";
+import { getInsights, getLastReport, generateReport } from "../api/client";
 import { useRouter } from "vue-router";
+import { ElMessage } from "element-plus";
 
 const data = ref<any>({});
 const healthEl = ref<HTMLDivElement>();
 const rankEl = ref<HTMLDivElement>();
 const router = useRouter();
+const report = ref<any>({});
+const reportLoading = ref(false);
 const typeTotal = computed(() => {
   const d = data.value.type_distribution || {};
   return Object.values(d).reduce((a: number, b: unknown) => a + Number(b), 0) as number;
 });
 
+async function loadReport() {
+  report.value = (await getLastReport()).data || {};
+}
+async function genReport() {
+  reportLoading.value = true;
+  try {
+    report.value = (await generateReport(7)).data;
+    ElMessage.success("周报已生成并推送通知渠道");
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || "生成失败");
+  } finally {
+    reportLoading.value = false;
+  }
+}
+
 onMounted(async () => {
   const { data: d } = await getInsights();
   data.value = d;
+  loadReport();
   if (healthEl.value) {
     const hd = d.health_distribution || {};
     echarts.init(healthEl.value).setOption({
@@ -47,6 +66,22 @@ onMounted(async () => {
 
 <template>
   <div>
+    <!-- 经营周报(P1 F4-7) -->
+    <div class="card" style="margin-bottom: 16px">
+      <div style="display:flex; align-items:center; gap:14px">
+        <div>
+          <h4 style="margin:0 0 2px">经营周报 <span style="font-size:12px; color:#94a3b8; font-weight:400">
+            {{ report.generated_at ? `更新于 ${report.generated_at}` : "尚未生成" }}</span></h4>
+          <span style="font-size:12px; color:#64748b">
+            统计 + AI 撰写,每周一 09:00 自动生成并推送通知渠道</span>
+        </div>
+        <el-button type="primary" style="margin-left:auto" :loading="reportLoading" @click="genReport">
+          立即生成本周周报
+        </el-button>
+      </div>
+      <div v-if="report.content" class="report-body">{{ report.content }}</div>
+    </div>
+
     <el-row :gutter="16">
       <el-col :span="8">
         <div class="card">
@@ -103,3 +138,17 @@ onMounted(async () => {
   </div>
 </template>
 
+
+<style scoped>
+.report-body {
+  margin-top: 12px;
+  padding: 14px 16px;
+  background: var(--paper-deep, #f3efe6);
+  border: 1px solid var(--rule, #dfd8c7);
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  color: var(--ink, #211d19);
+}
+</style>

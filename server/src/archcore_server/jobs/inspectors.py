@@ -50,6 +50,21 @@ def _job_health() -> None:
     health.run(_session_factory)
 
 
+def _job_weekly_report() -> None:
+    """每周一 09:00 生成经营周报并推送渠道;AI 未配置时留日志跳过。"""
+    from ..services import notify as notify_svc
+    from ..services import report as report_svc
+
+    with _session_factory() as db:
+        try:
+            report = report_svc.generate_report(db, days=7)
+        except ValueError as exc:
+            log.info("weekly report skipped: %s", exc)
+            return
+        sent = notify_svc.dispatch_report(db, "ArchCore 经营周报(近 7 天)", report["content"])
+        log.info("weekly report generated, pushed=%s", sent)
+
+
 def start_jobs(factory) -> None:
     global _session_factory
     _session_factory = factory
@@ -57,6 +72,9 @@ def start_jobs(factory) -> None:
     scheduler.add_job(_job_collect_stale, "interval", minutes=5, id="collect_stale")
     scheduler.add_job(_job_daily, "cron", hour=8, minute=30, id="daily_inspect")
     scheduler.add_job(_job_health, "interval", hours=1, id="health")
+    scheduler.add_job(
+        _job_weekly_report, "cron", day_of_week="mon", hour=9, minute=0, id="weekly_report"
+    )
     scheduler.start()
     log.info("jobs started")
 

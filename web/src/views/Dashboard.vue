@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import * as echarts from "echarts";
-import { dashboard, listCustomers } from "../api/client";
+import { dashboard, listCustomers, assistantQuery } from "../api/client";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 
@@ -61,8 +61,25 @@ onMounted(async () => {
   }
 });
 
-function askAi() {
-  ElMessage.info("AI 助手对话能力即将上线,入口先行为你留好");
+const aiQuestion = ref("");
+const aiAnswer = ref("");
+const aiHits = ref<any[]>([]);
+const aiLoading = ref(false);
+
+async function askAi() {
+  const q = aiQuestion.value.trim();
+  if (!q || aiLoading.value) return;
+  aiLoading.value = true;
+  aiAnswer.value = "";
+  try {
+    const { data } = await assistantQuery(q);
+    aiAnswer.value = data.answer;
+    aiHits.value = data.hits || [];
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || "AI 助手暂不可用");
+  } finally {
+    aiLoading.value = false;
+  }
 }
 </script>
 
@@ -219,8 +236,18 @@ function askAi() {
           <div class="ai-sub">用一句话了解客户动向，例如：「近两周哪些客户超过 7 天没有回复？」</div>
         </div>
         <div class="ai-input">
-          <input placeholder="输入你的问题，交给 AI 助手" @keydown.enter="askAi" />
-          <button @click="askAi">提问</button>
+          <input v-model="aiQuestion" placeholder="输入你的问题，交给 AI 助手" @keydown.enter="askAi" />
+          <button :disabled="aiLoading" @click="askAi">{{ aiLoading ? "思考中…" : "提问" }}</button>
+        </div>
+      </div>
+      <div v-if="aiAnswer" class="ai-answer">
+        <div class="ai-a">{{ aiAnswer }}</div>
+        <div v-if="aiHits.length" class="ai-hits">
+          <div class="ai-h">相关消息（{{ aiHits.length }}）</div>
+          <div v-for="(h, i) in aiHits" :key="i" class="ai-hit">
+            <span class="ai-hs">「{{ h.session }}」</span>{{ h.content }}
+            <span class="ai-ht">{{ h.ts }}</span>
+          </div>
         </div>
       </div>
     </section>
@@ -327,6 +354,13 @@ function askAi() {
   font-family: var(--sans);
 }
 .ai-input button:hover { background: var(--accent-ink); }
+.ai-answer { margin-top: 14px; border-top: 1px solid var(--rule); padding-top: 12px; }
+.ai-a { font-size: 14px; line-height: 1.8; white-space: pre-wrap; color: var(--ink); }
+.ai-hits { margin-top: 10px; }
+.ai-h { font-size: 12px; color: var(--ink-3); margin-bottom: 4px; }
+.ai-hit { font-size: 13px; color: var(--ink-2); padding: 4px 0; border-bottom: 1px dashed var(--rule); }
+.ai-hs { color: var(--accent-ink); margin-right: 6px; }
+.ai-ht { float: right; font-size: 12px; color: var(--ink-3); }
 
 .collect { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
 .collect .ck { font-size: 12px; color: var(--ink-3); margin-bottom: 3px; }

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from ..core.config import LEVEL_ORDER, get_settings
@@ -527,3 +527,140 @@ def _msg_table():
     from ..models import Message
 
     return Message
+
+
+# ---------- 管道仪表(P1):采集管道自检可视化 ----------
+
+
+@router.get("/ingest/pipeline-stats")
+def pipeline_stats(identity: dict = Depends(manager_identity), db: Session = Depends(get_session)):
+    """采集管道健康统计:近 30 天同步任务成功率/耗时 + 近 7 天消息增量。"""
+    from datetime import timedelta
+
+    since30 = datetime.utcnow() - timedelta(days=30)
+    tasks = db.scalars(
+        select(SyncTask).where(SyncTask.created_at >= since30).order_by(SyncTask.created_at)
+    ).all()
+    total = len(tasks)
+    failed = [t for t in tasks if t.status == "failed"]
+    durations = [
+        (t.finished_at - t.created_at).total_seconds()
+        for t in tasks
+        if t.finished_at and t.created_at
+    ]
+    last_success = next((t for t in reversed(tasks) if t.status == "success"), None)
+    last_failed = next((t for t in reversed(tasks) if t.status == "failed"), None)
+    since7 = datetime.utcnow() - timedelta(days=7)
+    daily = db.execute(
+        text(
+            "SELECT date, SUM(total) AS total FROM message_daily "
+            "WHERE date >= :since GROUP BY date ORDER BY date"
+        ),
+        {"since": since7.date().isoformat()},
+    ).all()
+    return {
+        "sync_total": total,
+        "sync_failed": len(failed),
+        "sync_success_rate": round((total - len(failed)) / total * 100, 1) if total else None,
+        "sync_avg_seconds": round(sum(durations) / len(durations), 1) if durations else None,
+        "last_success": {"at": str(last_success.created_at), "type": last_success.type}
+        if last_success
+        else None,
+        "last_failed": {
+            "at": str(last_failed.created_at), "type": last_failed.type, "log": last_failed.log[:200],
+        }
+        if last_failed
+        else None,
+        "messages_daily": [{"date": d, "total": int(t or 0)} for d, t in daily],
+    }
+
+
+# ---------- AI 经营周报(P1 F4-7) ----------
+
+
+@router.post("/analytics/report")
+def gen_report(
+    identity: dict = Depends(manager_identity),
+    days: int = Query(7, ge=1, le=90),
+    db: Session = Depends(get_session),
+):
+    """生成经营周报(统计快照+LLM);生成后自动推送全部启用通知渠道。"""
+    from ..services import report as report_svc
+
+    current_user(identity, db)
+    try:
+        report = report_svc.generate_report(db, days)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    sent = notify_svc.dispatch_report(
+        db, f"ArchCore 经营周报(近 {days} 天)", report["content"]
+    )
+    db.add(AuditLog(user_id=identity["uid"], action="report_generate",
+                    target=f"days:{days}", detail={"pushed": sent}))
+    db.commit()
+    return {**report, "pushed_channels": sent}
+
+
+@router.get("/analytics/report")
+def last_report(identity: dict = Depends(user_identity), db: Session = Depends(get_session)):
+    from ..services import report as report_svc
+
+    current_user(identity, db)
+    return report_svc.get_last_report(db) or {}
+
+
+# ---------- AI 管家(P1):自然语言查数据(单轮 MVP) ----------
+
+
+@router.post("/assistant/query")
+def assistant_query(
+    body: dict,
+    identity: dict = Depends(user_identity),
+    db: Session = Depends(get_session),
+):
+    """单轮问答:数据快照+关键词检索作为上下文,LLM 只依据给定数据回答。"""
+    question = str(body.get("question") or "").strip()
+    if not question:
+        raise HTTPException(400, "question 不能为空")
+    from ..services import ai as ai_svc
+
+    cfg = ai_svc.get_ai_settings(db)
+    if cfg is None:
+        raise HTTPException(400, "AI 未配置：请在 系统设置 中填写 api_base / api_key / model")
+    current_user(identity, db)
+
+    dash = analysis.dashboard(db)
+    snapshot = {
+        "total_customers": dash.get("total_customers"),
+        "today_messages": dash.get("today_messages"),
+        "pending_alerts": dash.get("pending_alert_count"),
+        "unclaimed_sessions": dash.get("unclaimed_sessions"),
+        "top_sessions": dash.get("top_sessions"),
+    }
+    keyword = question[:32].replace("%", "").replace('"', "")
+    hits = []
+    if keyword:
+        rows = db.execute(
+            text(
+                "SELECT s.name, m.sender_type, m.content, m.ts FROM message m "
+                "JOIN chat_session s ON s.id = m.session_id "
+                "WHERE m.content LIKE :kw ORDER BY m.ts DESC LIMIT 8"
+            ),
+            {"kw": f"%{keyword}%"},
+        ).all()
+        hits = [
+            {"session": r[0] or "-", "who": r[1], "content": (r[2] or "")[:120], "ts": str(r[3])}
+            for r in rows
+        ]
+
+    system = (
+        "你是 ArchCore 管理台的 AI 管家。只依据给定【数据快照】和【检索命中】回答问题；"
+        "数据里没有的信息直说「数据里没有」，禁止编造。回答简洁中文，"
+        "引用消息时注明会话名与时间。"
+    )
+    user = f"【数据快照】{snapshot}\n【检索命中(按问题关键词)】{hits}\n【问题】{question}"
+    answer = ai_svc._call_llm(cfg, system, user)
+    db.add(AuditLog(user_id=identity["uid"], action="assistant_query", target=keyword,
+                    detail={"hits": len(hits)}))
+    db.commit()
+    return {"answer": answer, "hits": hits}

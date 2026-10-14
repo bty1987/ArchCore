@@ -25,6 +25,10 @@ export const login = (username: string, password: string) =>
 export const me = () => api.get("/auth/me");
 export const changePassword = (oldPassword: string, newPassword: string) =>
   api.post("/auth/change-password", { old_password: oldPassword, new_password: newPassword });
+export const generateReport = (days = 7) => api.post(`/analytics/report?days=${days}`);
+export const getLastReport = () => api.get("/analytics/report");
+export const pipelineStats = () => api.get("/ingest/pipeline-stats");
+export const assistantQuery = (question: string) => api.post("/assistant/query", { question });
 
 // —— 客户/会话 ——
 export const listCustomers = (params?: object) => api.get("/customers", { params });

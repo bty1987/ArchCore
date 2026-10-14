@@ -63,6 +63,23 @@ def dispatch_alert(db: Session, alert: Alert) -> None:
         )
 
 
+def dispatch_report(db: Session, title: str, body: str) -> int:
+    """报告类推送(周报等):发全部启用渠道,不做预警级别过滤;留痕 notify_record。"""
+    sent = 0
+    channels = db.scalars(select(NotifyChannel).where(NotifyChannel.enabled.is_(True))).all()
+    for ch in channels:
+        if ch.type == "inapp":
+            continue
+        status_, error = _send_channel(ch, title, body)
+        db.add(
+            NotifyRecord(alert_id=0, channel=ch.type, target=ch.name, status=status_, error=error)
+        )
+        if status_ == "sent":
+            sent += 1
+    db.commit()
+    return sent
+
+
 def _send_channel(ch: NotifyChannel, title: str, body: str) -> tuple[str, str | None]:
     try:
         if ch.type == "wecom":
