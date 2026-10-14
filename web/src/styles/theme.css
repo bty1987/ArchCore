@@ -1,0 +1,159 @@
+/*
+ * theme.css — ArchCore 管理台全局主题「暖纸账本」(Anthropic 语言,2026-10-14 选定)
+ * 方向记录:design-redesign/direction-approved.md;概念稿:design-demos/C_anthropic_warm.html
+ * 层序:本文件在 element-plus/dist/index.css 之后引入,变量覆盖即生效
+ */
+
+:root {
+  /* 纸与墨 */
+  --paper: #f6f3ec;
+  --paper-deep: #efeae0;
+  --paper-card: #fdfcf9;
+  --ink: #211d19;
+  --ink-2: #5c554a;
+  --ink-3: #6e675c;
+  /* 赭橙 accent(唯一主题色,语义红黄绿只给数据) */
+  --accent: #c15f3c;
+  --accent-ink: #a34a28;
+  /* 规则线 */
+  --rule: #dfd8c7;
+  --rule-strong: #3a342b;
+  /* 字体 */
+  --serif: "Newsreader", "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+
+  /* Element Plus 变量映射 */
+  --el-color-primary: #a34a28;
+  --el-color-primary-light-3: #c15f3c;
+  --el-color-primary-light-5: #d3896b;
+  --el-color-primary-light-7: #e5b49e;
+  --el-color-primary-light-8: #efccc0;
+  --el-color-primary-light-9: #f7e5dd;
+  --el-color-primary-dark-2: #8a3d20;
+  --el-bg-color: #fdfcf9;
+  --el-bg-color-page: #f6f3ec;
+  --el-bg-color-overlay: #fdfcf9;
+  --el-text-color-primary: #211d19;
+  --el-text-color-regular: #5c554a;
+  --el-text-color-secondary: #6e675c;
+  --el-text-color-placeholder: #a89f90;
+  --el-border-color: #dfd8c7;
+  --el-border-color-light: #e8e2d4;
+  --el-border-color-lighter: #ece6d8;
+  --el-border-color-extra-light: #f0ebe0;
+  --el-fill-color: #efeae0;
+  --el-fill-color-light: #f3efe6;
+  --el-fill-color-lighter: #f6f3ec;
+  --el-fill-color-blank: #fdfcf9;
+  --el-font-family: var(--sans);
+  --el-border-radius-base: 4px;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ---------- 通用排印件(各页共用) ---------- */
+
+.serif {
+  font-family: var(--serif);
+}
+
+/* 页刊头:小引导行 + 衬线大标题 + 口号 */
+.page-head {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 28px 32px 18px;
+}
+.page-kicker {
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  color: var(--accent-ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.page-kicker::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  background: var(--accent);
+  display: inline-block;
+}
+.page-title {
+  font-family: var(--serif);
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1.15;
+  margin: 6px 0 4px;
+  color: var(--ink);
+}
+.page-standfirst {
+  color: var(--ink-3);
+  font-size: 14px;
+}
+
+/* 分节:斜体图号 + 标题 + 右侧注 + 双细线 */
+.section {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 32px 26px;
+}
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  border-top: 1px solid var(--rule);
+  padding-top: 12px;
+  margin-bottom: 14px;
+}
+.section-no {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--accent-ink);
+}
+.section-title {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.section-note {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+/* 纸面卡:去阴影,细线描边 */
+.card {
+  background: var(--paper-card);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 16px 18px;
+}
+
+/* 数字用衬线(表格外的关键数字) */
+.num-serif {
+  font-family: var(--serif);
+  font-variant-numeric: lining-nums;
+}
+
+/* 滚动条同纸感 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--rule);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

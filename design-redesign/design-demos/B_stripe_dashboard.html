@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ArchCore · 工作台(高保真概念稿 B)</title>
+<!--
+  ============================================================
+  ArchCore 微信客户智能经营平台 · 工作台 高保真概念稿(方案 B)
+  设计参照:Stripe Dashboard 设计语言迁移(非复刻页面)
+  迁移手法一:无阴影、以底色分层造深度(白卡 + 1px 细分割线 + 极浅灰页面底)
+  迁移手法二:色彩即信号(紫 #635bff 仅作极小面积 accent;红/黄/绿只表达状态语义)
+  迁移手法三:表格工艺(tabular-nums、右对齐数值列、发丝线行分隔、12px 表头微标签)
+  本页全部数值均为「示例数据」,仅用于设计评审。
+  纯 HTML/CSS + 内联 SVG,无外部 JS,双击即可打开。
+  ============================================================
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ---------- 设计令牌 ---------- */
+  :root{
+    --bg:#f6f8fb;            /* 页面底:极浅灰蓝(Stripe 式分层底) */
+    --card:#ffffff;          /* 卡片面 */
+    --line:#e3e8ee;          /* 卡片描边 / 强分割线 */
+    --line-2:#eef1f6;        /* 发丝线(表格行分隔) */
+    --ink:#1a2440;           /* 主文字:深藏青 */
+    --ink-2:#425466;         /* 次级文字 */
+    --ink-3:#667085;         /* 注释/标签(白底对比 4.9:1) */
+    --accent:#635bff;        /* 紫 accent,仅小面积使用(链接/主态/图表主线) */
+    --accent-strong:#5148d8; /* accent 悬停 */
+    --navy:#0a2540;          /* Stripe 深藏青:AI 助手按钮底 */
+    --red:#cd3d64;           /* 危险/预警(白底文字 4.7:1) */
+    --amber-t:#8a5a00;       /* 关注(文字安全色) */
+    --amber-f:#d98e1f;       /* 关注(图形填充) */
+    --green:#1a7f37;         /* 正常(文字安全色) */
+    --green-f:#2f9e63;       /* 正常(图形填充) */
+    --tint-red:#fceef3;
+    --tint-amber:#faf3e3;
+    --tint-purple:#f0eefe;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{background:var(--bg)}
+  body{
+    font-family:'Inter','Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    font-size:14px;line-height:1.5;color:var(--ink-2);
+    background:var(--bg);
+    font-feature-settings:"tnum" 1,"lnum" 1;
+    font-variant-numeric:tabular-nums lining-nums;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;text-decoration:none}
+  a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+  .num{font-variant-numeric:tabular-nums lining-nums}
+  .t-red{color:var(--red)}
+  .t-amber{color:var(--amber-t)}
+  .t-green{color:var(--green)}
+  .t-accent{color:var(--accent)}
+
+  /* ---------- 顶部全局导航 ---------- */
+  .topbar{
+    position:sticky;top:0;z-index:50;height:56px;
+    background:#fff;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;padding:0 32px;gap:16px;
+  }
+  .brand{font-size:16px;font-weight:700;letter-spacing:-.2px;color:var(--ink);flex-shrink:0}
+  .nav{display:flex;align-items:center;height:100%}
+  .nav-eyebrow{
+    font-size:12px;color:var(--ink-3);padding:0 10px 0 14px;flex-shrink:0;
+  }
+  .nav-eyebrow.sys{border-left:1px solid var(--line)}
+  .nav a.item{
+    font-size:14px;color:var(--ink-2);padding:0 11px;height:56px;
+    display:flex;align-items:center;position:relative;white-space:nowrap;
+    transition:color .15s;
+  }
+  .nav a.item:hover{color:var(--ink)}
+  .nav a.item.active{color:var(--ink);font-weight:600}
+  .nav a.item.active::after{
+    content:"";position:absolute;left:11px;right:11px;bottom:-1px;height:2px;background:var(--accent);
+  }
+  .top-right{margin-left:auto;display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .search{
+    display:flex;align-items:center;gap:8px;width:240px;height:34px;
+    background:var(--bg);border:1px solid var(--line);border-radius:6px;
+    padding:0 10px;color:var(--ink-3);transition:border-color .15s;
+  }
+  .search:focus-within{border-color:#b9c4d2;background:#fff}
+  .search svg{flex-shrink:0}
+  .search input{
+    border:none;outline:none;background:transparent;width:100%;
+    font-size:14px;font-family:inherit;color:var(--ink);
+  }
+  .search input::placeholder{color:var(--ink-3)}
+  .top-item{
+    display:flex;align-items:center;gap:6px;height:34px;padding:0 8px;
+    border-radius:6px;font-size:14px;color:var(--ink-2);cursor:pointer;
+    transition:background .15s,color .15s;position:relative;white-space:nowrap;
+  }
+  .top-item:hover{background:var(--bg);color:var(--ink)}
+  .n-badge{
+    min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--red);
+    color:#fff;font-size:12px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;
+  }
+  .top-div{width:1px;height:20px;background:var(--line)}
+  .user{gap:8px}
+  .avatar{
+    width:26px;height:26px;border-radius:50%;background:var(--navy);color:#fff;
+    font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;letter-spacing:.2px;
+  }
+
+  /* ---------- 页头(面包屑 + 标题 + 时间范围) ---------- */
+  .wrap{max-width:1512px;margin:0 auto;padding:20px 32px 0}
+  .crumb{font-size:12px;color:var(--ink-3);margin-bottom:6px}
+  .crumb a:hover{color:var(--accent)}
+  .crumb span{margin:0 6px;color:#b6c0cd}
+  .crumb b{color:var(--ink-2);font-weight:500}
+  .ph-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  h1{font-size:22px;font-weight:600;color:var(--ink);letter-spacing:-.2px;display:flex;align-items:center}
+  .demo-badge{
+    margin-left:12px;font-size:12px;font-weight:500;color:var(--ink-3);
+    border:1px solid var(--line);background:#fff;border-radius:999px;
+    padding:3px 10px;display:inline-flex;align-items:center;gap:6px;letter-spacing:.02em;
+  }
+  .demo-badge::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--amber-f)}
+  .ph-right{display:flex;align-items:center;gap:14px}
+  .date-chip{
+    display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;
+    background:#fff;border:1px solid var(--line);border-radius:6px;
+    font-size:13px;color:var(--ink-2);
+  }
+  .updated{font-size:12px;color:var(--ink-3)}
+
+  /* ---------- 内容多列网格 ---------- */
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:24px;margin-top:20px;padding-bottom:8px}
+  .s3{grid-column:span 3}.s4{grid-column:span 4}.s8{grid-column:span 8}.s12{grid-column:span 12}
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:8px;
+    display:flex;flex-direction:column;min-width:0;
+    transition:border-color .15s;
+  }
+  .card:hover{border-color:#d3dbe4}
+  .card-h{padding:18px 22px 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .c-title{font-size:15px;font-weight:600;color:var(--ink)}
+  .c-sub{font-size:12px;color:var(--ink-3);margin-top:3px}
+  .link{
+    font-size:13px;font-weight:500;color:var(--accent);display:inline-flex;align-items:center;gap:3px;
+    white-space:nowrap;
+  }
+  .link:hover{color:var(--accent-strong);text-decoration:underline;text-underline-offset:3px}
+  .count-pill{
+    font-size:12px;font-weight:600;color:var(--ink-2);background:var(--bg);
+    border:1px solid var(--line);border-radius:999px;padding:2px 9px;
+  }
+
+  /* ---------- 指标卡 ---------- */
+  .m-card{padding:18px 20px 16px}
+  .m-label{font-size:13px;color:var(--ink-3)}
+  .m-val{font-size:30px;font-weight:600;color:var(--ink);letter-spacing:-.5px;margin-top:8px;line-height:1.15}
+  .m-slash{color:#b6c0cd;font-weight:400;padding:0 3px;font-size:26px}
+  .m-note{font-size:12.5px;margin-top:8px;color:var(--ink-3);display:flex;align-items:center;gap:4px}
+  .m-note svg{flex-shrink:0}
+  .m-note .n-sep{margin:0 3px;color:#b6c0cd}
+
+  /* ---------- 趋势图(内联 SVG) ---------- */
+  .chart-wrap{padding:2px 18px 12px 4px;flex:1;display:flex;align-items:flex-end}
+  .chart-wrap svg{width:100%;height:auto;display:block}
+  .chart-stat{font-size:13px;color:var(--ink-3);white-space:nowrap}
+  .chart-stat b{font-weight:600;color:var(--ink);font-size:14px}
+  .chart-stat .dot-sep{margin:0 6px;color:#b6c0cd}
+
+  /* ---------- 待办中心 ---------- */
+  .todo-body{flex:1;display:flex;flex-direction:column;justify-content:center}
+  .todo-row{
+    display:flex;align-items:center;gap:14px;padding:13px 22px;
+    border-top:1px solid var(--line-2);transition:background .15s;
+  }
+  .todo-row:hover{background:#f8fafd}
+  .todo-ic{
+    width:34px;height:34px;border-radius:8px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .ic-red{background:var(--tint-red);color:var(--red)}
+  .ic-amber{background:var(--tint-amber);color:var(--amber-t)}
+  .ic-purple{background:var(--tint-purple);color:var(--accent)}
+  .todo-main{flex:1;min-width:0}
+  .todo-t{display:block;font-size:14px;font-weight:500;color:var(--ink)}
+  .todo-s{display:block;font-size:12px;color:var(--ink-3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .todo-n{font-size:17px;font-weight:600}
+  .todo-chev{color:#b6c0cd;flex-shrink:0}
+  .todo-row:hover .todo-chev{color:var(--ink-3)}
+
+  /* ---------- Top 5 会话表(主角) ---------- */
+  table{width:100%;border-collapse:collapse}
+  thead th{
+    font-size:12px;font-weight:500;color:var(--ink-3);text-align:left;letter-spacing:.02em;
+    padding:9px 22px;background:#fbfcfe;border-top:1px solid var(--line-2);border-bottom:1px solid var(--line);
+    white-space:nowrap;
+  }
+  tbody td{padding:13px 22px;border-bottom:1px solid var(--line-2);vertical-align:middle}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr{transition:background .12s}
+  tbody tr:hover{background:#f8fafd}
+  .ta-r{text-align:right}
+  .th-r{padding-right:26px}
+  .rank{font-size:13px;color:var(--ink-3)}
+  .s-name{font-size:14px;font-weight:500;color:var(--ink);line-height:1.35}
+  .s-sub{font-size:12px;color:var(--ink-3);margin-top:2px}
+  .chip{
+    display:inline-block;font-size:12px;padding:2px 9px;border-radius:4px;white-space:nowrap;
+  }
+  .chip-group{background:var(--bg);border:1px solid var(--line);color:var(--ink-2)}
+  .chip-single{background:#fff;border:1px solid var(--line);color:var(--ink-2)}
+  .msg-n{font-size:15px;font-weight:600;color:var(--ink)}
+  .share{display:flex;align-items:center;gap:10px;min-width:190px}
+  .bar-track{flex:1;height:6px;background:var(--line-2);border-radius:3px;overflow:hidden}
+  .bar-fill{display:block;height:100%;border-radius:3px;background:var(--accent)}
+  .bar-pct{font-size:13px;color:var(--ink-2);width:44px;text-align:right;flex-shrink:0}
+  .tbl-note{padding:11px 22px 14px;font-size:12px;color:var(--ink-3);border-top:1px solid var(--line-2);margin-top:auto}
+
+  /* ---------- 客户健康度 ---------- */
+  .h-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;margin:2px 22px 4px;background:var(--line-2)}
+  .h-bar i{display:block;height:100%}
+  .h-bar i + i{border-left:1px solid #fff}
+  .h-row{display:flex;align-items:center;gap:10px;padding:11px 22px;border-top:1px solid var(--line-2);transition:background .15s}
+  .h-row:hover{background:#f8fafd}
+  .h-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .h-t{flex:1;font-size:13px;color:var(--ink-2)}
+  .h-t small{display:block;font-size:12px;color:var(--ink-3)}
+  .h-n{font-size:16px;font-weight:600;color:var(--ink)}
+  .h-note{padding:11px 22px 14px;font-size:12px;color:var(--ink-3);border-top:1px solid var(--line-2);margin-top:auto}
+
+  /* ---------- 消息类型分布(纯 CSS 横条) ---------- */
+  .d-row{display:flex;align-items:center;gap:12px;padding:9px 22px}
+  .d-label{width:58px;font-size:13px;color:var(--ink-2);font-family:'Inter',sans-serif;flex-shrink:0}
+  .d-track{flex:1;height:8px;background:var(--line-2);border-radius:4px;overflow:hidden}
+  .d-track i{display:block;height:100%;background:var(--accent);border-radius:4px}
+  .d-pct{width:40px;text-align:right;font-size:13px;font-weight:600;color:var(--ink);flex-shrink:0}
+  .d-note{padding:10px 22px 14px;font-size:12px;color:var(--ink-3);border-top:1px solid var(--line-2);margin-top:auto}
+
+  /* ---------- 采集状态 ---------- */
+  .kv > div{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 22px;border-top:1px solid var(--line-2)}
+  .kv dt{font-size:13px;color:var(--ink-3)}
+  .kv dd{font-size:14px;font-weight:500;color:var(--ink);display:flex;align-items:center;gap:7px}
+  .kv .kv-sep{color:#b6c0cd;font-weight:400}
+  .st-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .d-green{background:var(--green-f)}
+  .pulse{animation:pulse 2.4s ease-out infinite}
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(47,158,99,.35)}
+    70%{box-shadow:0 0 0 6px rgba(47,158,99,0)}
+    100%{box-shadow:0 0 0 0 rgba(47,158,99,0)}
+  }
+  .kv-foot{padding:12px 22px 16px;border-top:1px solid var(--line-2);margin-top:auto}
+
+  /* ---------- 页脚 ---------- */
+  .foot{
+    margin-top:24px;border-top:1px solid var(--line);
+    padding:18px 32px 26px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    font-size:12px;color:var(--ink-3);max-width:1512px;margin-left:auto;margin-right:auto;
+  }
+
+  /* ---------- AI 助手浮动入口(占位) ---------- */
+  .ai-fab{
+    position:fixed;right:28px;bottom:28px;z-index:60;
+    display:flex;align-items:center;gap:8px;height:46px;padding:0 20px;
+    background:var(--navy);color:#fff;border:none;border-radius:999px;cursor:pointer;
+    font-size:14px;font-weight:600;font-family:inherit;letter-spacing:.01em;
+    box-shadow:0 8px 20px rgba(10,37,64,.22);
+    transition:background .15s,transform .15s;
+  }
+  .ai-fab:hover{background:#0e3a63;transform:translateY(-1px)}
+
+  /* ---------- 响应式(主视角 1440×900,向下兼容) ---------- */
+  @media (max-width:1360px){.search{width:190px}}
+  @media (max-width:1200px){
+    .s3{grid-column:span 6}
+    .s8,.s4{grid-column:span 12}
+    .search{display:none}
+  }
+</style>
+</head>
+<body>
+
+<!-- ======= 顶部全局导航:浅色底骨架(区别于深色侧栏/居中纸面两种骨架) ======= -->
+<nav class="topbar">
+  <a class="brand" href="#">ArchCore</a>
+
+  <div class="nav">
+    <span class="nav-eyebrow">业务</span>
+    <a class="item active" href="#" aria-current="page">工作台</a>
+    <a class="item" href="#">客户中心</a>
+    <a class="item" href="#">消息检索</a>
+    <a class="item" href="#">预警中心</a>
+    <a class="item" href="#">洞察分析</a>
+    <span class="nav-eyebrow sys">系统</span>
+    <a class="item" href="#">采集与通道</a>
+    <a class="item" href="#">系统设置</a>
+  </div>
+
+  <div class="top-right">
+    <label class="search">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="11" cy="11" r="6.3"/><path d="m15.8 15.8 4.4 4.4"/></svg>
+      <input type="text" placeholder="搜索客户、会话、消息…">
+    </label>
+
+    <a class="top-item" href="#" title="通知">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18.4 16.2H5.6l1.7-2.8V10a4.7 4.7 0 0 1 9.4 0v3.4l1.7 2.8Z"/><path d="M10.2 19.2a1.9 1.9 0 0 0 3.6 0"/></svg>
+      通知
+      <i class="n-badge num">3</i>
+    </a>
+
+    <span class="top-div"></span>
+
+    <a class="top-item user" href="#">
+      <span class="avatar">bt</span>
+      bty1987
+    </a>
+    <a class="top-item" href="#">退出</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ======= 页头:面包屑 + 标题 + 示例数据标注 + 时间范围 ======= -->
+  <header>
+    <div class="crumb"><a href="#">业务</a><span>/</span><b>工作台</b></div>
+    <div class="ph-row">
+      <h1>工作台<span class="demo-badge">示例数据</span></h1>
+      <div class="ph-right">
+        <span class="date-chip">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 9.8h17M8.2 2.8v4M15.8 2.8v4"/></svg>
+          09-30 – 10-13
+        </span>
+        <span class="updated">更新于 今天 14:32</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="grid">
+
+    <!-- ======= 块 1:四指标卡 ======= -->
+    <article class="card m-card s3">
+      <div class="m-label">客户总数</div>
+      <div class="m-val num">31</div>
+      <div class="m-note">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1a7f37" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 18.5v-13M6.5 11 12 5.5 17.5 11"/></svg>
+        <span class="t-green">较上周 +3</span>
+      </div>
+    </article>
+
+    <article class="card m-card s3">
+      <div class="m-label">已映射 / 待认领会话</div>
+      <div class="m-val num">27<span class="m-slash">/</span><span class="t-amber">4</span></div>
+      <div class="m-note"><span class="t-amber">4 个待认领</span><span class="n-sep">·</span>建议今日完成归属</div>
+    </article>
+
+    <article class="card m-card s3">
+      <div class="m-label">今日消息量</div>
+      <div class="m-val num">148</div>
+      <div class="m-note">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1a7f37" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 18.5v-13M6.5 11 12 5.5 17.5 11"/></svg>
+        <span class="t-green">较日均 +37%</span>
+      </div>
+    </article>
+
+    <article class="card m-card s3">
+      <div class="m-label">待处理预警</div>
+      <div class="m-val num">3</div>
+      <div class="m-note"><span class="t-red">2 条已超过 24 小时</span></div>
+    </article>
+
+    <!-- ======= 块 2:近 14 天消息趋势(内联 SVG) ======= -->
+    <article class="card s8">
+      <div class="card-h">
+        <div>
+          <div class="c-title">消息趋势</div>
+          <div class="c-sub">近 14 天 · 按日汇总</div>
+        </div>
+        <div class="chart-stat">合计 <b class="num">1,513</b> 条<span class="dot-sep">·</span>日均 <b class="num">108</b> 条</div>
+      </div>
+      <div class="chart-wrap">
+        <!-- 数据(示例):09-30=92 10-01=78 10-02=64 10-03=71 10-04=60 10-05=83 10-06=96 10-07=105 10-08=121 10-09=138 10-10=129 10-11=152 10-12=176(峰) 10-13=148;纵轴域 40–200 -->
+        <svg viewBox="0 0 720 260" role="img" aria-label="近 14 天消息趋势折线图,10 月 12 日达到峰值 176 条(示例数据)">
+          <!-- 横向网格线与纵轴刻度 -->
+          <g stroke="#eceff5" stroke-width="1">
+            <line x1="44" y1="51.5"  x2="704" y2="51.5"/>
+            <line x1="44" y1="98.5"  x2="704" y2="98.5"/>
+            <line x1="44" y1="145.4" x2="704" y2="145.4"/>
+            <line x1="44" y1="192.5" x2="704" y2="192.5"/>
+          </g>
+          <g font-size="12" fill="#667085" text-anchor="end">
+            <text x="36" y="55.5">180</text>
+            <text x="36" y="102.5">140</text>
+            <text x="36" y="149.4">100</text>
+            <text x="36" y="196.5">60</text>
+          </g>
+          <line x1="44" y1="216" x2="704" y2="216" stroke="#e3e8ee" stroke-width="1"/>
+          <!-- 面积(平涂低透明,不做渐变) -->
+          <path fill="#635bff" fill-opacity="0.07" d="M44,154.9 L94.8,171.4 L145.5,187.8 L196.3,179.6 L247.1,192.5 L297.9,165.5 L348.6,150.2 L399.4,139.6 L450.2,120.8 L500.9,100.9 L551.7,111.4 L602.5,84.4 L653.2,56.2 L704,89.1 L704,216 L44,216 Z"/>
+          <!-- 折线 -->
+          <polyline fill="none" stroke="#635bff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"
+            points="44,154.9 94.8,171.4 145.5,187.8 196.3,179.6 247.1,192.5 297.9,165.5 348.6,150.2 399.4,139.6 450.2,120.8 500.9,100.9 551.7,111.4 602.5,84.4 653.2,56.2 704,89.1"/>
+          <!-- 峰值标注:10-12 · 176 -->
+          <line x1="653.2" y1="32" x2="653.2" y2="50.5" stroke="#0a2540" stroke-opacity=".25" stroke-width="1"/>
+          <rect x="610" y="8" width="86" height="24" rx="5" fill="#0a2540"/>
+          <text x="653" y="24" font-size="12" font-weight="600" fill="#ffffff" text-anchor="middle">10-12 · 176</text>
+          <circle cx="653.2" cy="56.2" r="4" fill="#ffffff" stroke="#635bff" stroke-width="2"/>
+          <!-- 最新一日数值 -->
+          <circle cx="704" cy="89.1" r="3.5" fill="#635bff" stroke="#ffffff" stroke-width="1.5"/>
+          <text x="700" y="76" font-size="12" font-weight="600" fill="#1a2440" text-anchor="end">148</text>
+          <!-- 横轴日期 -->
+          <g font-size="12" fill="#667085" text-anchor="middle">
+            <text x="44"  y="240">09-30</text>
+            <text x="196" y="240">10-03</text>
+            <text x="349" y="240">10-06</text>
+            <text x="501" y="240">10-09</text>
+            <text x="653" y="240">10-12</text>
+          </g>
+        </svg>
+      </div>
+    </article>
+
+    <!-- ======= 块 4:待办中心 ======= -->
+    <article class="card s4">
+      <div class="card-h">
+        <div>
+          <div class="c-title">待办中心</div>
+          <div class="c-sub">今日需要老板处理的事项</div>
+        </div>
+        <span class="count-pill num">7 项</span>
+      </div>
+      <div class="todo-body">
+        <a class="todo-row" href="#">
+          <span class="todo-ic ic-red">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4 21 19.5H3L12 4Z"/><path d="M12 10v4"/><path d="M12 16.9h.01"/></svg>
+          </span>
+          <span class="todo-main">
+            <span class="todo-t">待处理预警</span>
+            <span class="todo-s">2 条已超过 24 小时未处理</span>
+          </span>
+          <span class="todo-n num t-red">3</span>
+          <svg class="todo-chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 6.5 5.5 5.5-5.5 5.5"/></svg>
+        </a>
+        <a class="todo-row" href="#">
+          <span class="todo-ic ic-amber">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9.5" cy="8" r="3.4"/><path d="M3.5 19.5c.6-3 3-4.8 6-4.8s5.4 1.8 6 4.8"/><path d="M18.5 8.5v5M16 11h5"/></svg>
+          </span>
+          <span class="todo-main">
+            <span class="todo-t">待认领会话</span>
+            <span class="todo-s">建议今日完成客户归属分配</span>
+          </span>
+          <span class="todo-n num t-amber">4</span>
+          <svg class="todo-chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 6.5 5.5 5.5-5.5 5.5"/></svg>
+        </a>
+      </div>
+      <a class="todo-row" href="#">
+        <span class="todo-ic ic-purple">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4.5 19.5v-6M10.5 19.5v-11M16.5 19.5v-8"/></svg>
+        </span>
+        <span class="todo-main">
+          <span class="todo-t t-accent">查看洞察分析</span>
+          <span class="todo-s">近 7 天经营周报已生成</span>
+        </span>
+        <svg class="todo-chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#635bff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 6.5 5.5 5.5-5.5 5.5"/></svg>
+      </a>
+    </article>
+
+    <!-- ======= 块 3:Top 5 活跃会话表(表格工艺主角) ======= -->
+    <article class="card s12">
+      <div class="card-h">
+        <div>
+          <div class="c-title">Top 5 活跃会话</div>
+          <div class="c-sub">近 7 天 · 按消息量排序 · 一个会话对应一个客户</div>
+        </div>
+        <a class="link" href="#">查看全部会话
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 6.5 5.5 5.5-5.5 5.5"/></svg>
+        </a>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:56px">#</th>
+            <th>会话</th>
+            <th style="width:88px">类型</th>
+            <th class="ta-r" style="width:110px">消息数</th>
+            <th class="th-r" style="width:230px;text-align:right">占 Top 5</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="rank num">01</td>
+            <td>
+              <div class="s-name">库迪咖啡供应链群</div>
+              <div class="s-sub">32 名成员 · 最近活跃 今天 14:26</div>
+            </td>
+            <td><span class="chip chip-group">群聊</span></td>
+            <td class="ta-r msg-n num">412</td>
+            <td><span class="share"><span class="bar-track"><i class="bar-fill" style="width:100%"></i></span><span class="bar-pct num">32.4%</span></span></td>
+          </tr>
+          <tr>
+            <td class="rank num">02</td>
+            <td>
+              <div class="s-name">大美婆</div>
+              <div class="s-sub">单聊 · 最近活跃 今天 13:58</div>
+            </td>
+            <td><span class="chip chip-single">单聊</span></td>
+            <td class="ta-r msg-n num">287</td>
+            <td><span class="share"><span class="bar-track"><i class="bar-fill" style="width:69.7%"></i></span><span class="bar-pct num">22.6%</span></span></td>
+          </tr>
+          <tr>
+            <td class="rank num">03</td>
+            <td>
+              <div class="s-name">美团拼好饭群</div>
+              <div class="s-sub">156 名成员 · 最近活跃 今天 12:41</div>
+            </td>
+            <td><span class="chip chip-group">群聊</span></td>
+            <td class="ta-r msg-n num">233</td>
+            <td><span class="share"><span class="bar-track"><i class="bar-fill" style="width:56.6%"></i></span><span class="bar-pct num">18.3%</span></span></td>
+          </tr>
+          <tr>
+            <td class="rank num">04</td>
+            <td>
+              <div class="s-name">老张-设备对接</div>
+              <div class="s-sub">单聊 · 最近活跃 今天 11:05</div>
+            </td>
+            <td><span class="chip chip-single">单聊</span></td>
+            <td class="ta-r msg-n num">186</td>
+            <td><span class="share"><span class="bar-track"><i class="bar-fill" style="width:45.1%"></i></span><span class="bar-pct num">14.6%</span></span></td>
+          </tr>
+          <tr>
+            <td class="rank num">05</td>
+            <td>
+              <div class="s-name">XX 项目沟通群</div>
+              <div class="s-sub">21 名成员 · 最近活跃 昨天 21:33</div>
+            </td>
+            <td><span class="chip chip-group">群聊</span></td>
+            <td class="ta-r msg-n num">154</td>
+            <td><span class="share"><span class="bar-track"><i class="bar-fill" style="width:37.4%"></i></span><span class="bar-pct num">12.1%</span></span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="tbl-note">占比 = 该会话消息数 ÷ Top 5 合计(1,272 条) · 示例数据</div>
+    </article>
+
+    <!-- ======= 块 5:客户健康度 ======= -->
+    <article class="card s4">
+      <div class="card-h">
+        <div>
+          <div class="c-title">客户健康度</div>
+          <div class="c-sub">31 家客户 · 红 2 / 黄 5 / 绿 24</div>
+        </div>
+        <a class="link" href="#">客户中心
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 6.5 5.5 5.5-5.5 5.5"/></svg>
+        </a>
+      </div>
+      <div class="h-bar" role="img" aria-label="客户健康度分布:红色 2 家、黄色 5 家、绿色 24 家(示例数据)">
+        <i style="width:6.5%;background:#cd3d64"></i>
+        <i style="width:16.1%;background:#d98e1f"></i>
+        <i style="width:77.4%;background:#2f9e63"></i>
+      </div>
+      <div class="h-row">
+        <span class="h-dot" style="background:#cd3d64"></span>
+        <span class="h-t">红色<small>出现流失或冲突信号,需立即介入</small></span>
+        <span class="h-n num">2</span>
+      </div>
+      <div class="h-row">
+        <span class="h-dot" style="background:#d98e1f"></span>
+        <span class="h-t">黄色<small>活跃度下降或长时间未跟进</small></span>
+        <span class="h-n num">5</span>
+      </div>
+      <div class="h-row">
+        <span class="h-dot" style="background:#2f9e63"></span>
+        <span class="h-t">绿色<small>沟通活跃,经营正常</small></span>
+        <span class="h-n num">24</span>
+      </div>
+      <div class="h-note">健康度依据近 7 天互动频率与预警记录自动评估 · 示例规则</div>
+    </article>
+
+    <!-- ======= 块 7:消息类型分布 ======= -->
+    <article class="card s4">
+      <div class="card-h">
+        <div>
+          <div class="c-title">消息类型分布</div>
+          <div class="c-sub">近 14 天 · 共 1,513 条</div>
+        </div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:4px 0">
+        <div class="d-row"><span class="d-label">text</span><span class="d-track"><i style="width:62%"></i></span><span class="d-pct num">62%</span></div>
+        <div class="d-row"><span class="d-label">image</span><span class="d-track"><i style="width:15%"></i></span><span class="d-pct num">15%</span></div>
+        <div class="d-row"><span class="d-label">appmsg</span><span class="d-track"><i style="width:9%"></i></span><span class="d-pct num">9%</span></div>
+        <div class="d-row"><span class="d-label">voice</span><span class="d-track"><i style="width:8%"></i></span><span class="d-pct num">8%</span></div>
+        <div class="d-row"><span class="d-label">video</span><span class="d-track"><i style="width:3%"></i></span><span class="d-pct num">3%</span></div>
+        <div class="d-row"><span class="d-label">system</span><span class="d-track"><i style="width:3%"></i></span><span class="d-pct num">3%</span></div>
+      </div>
+      <div class="d-note">system 含撤回、入群通知等平台消息 · 示例数据</div>
+    </article>
+
+    <!-- ======= 块 6:采集状态 ======= -->
+    <article class="card s4">
+      <div class="card-h">
+        <div>
+          <div class="c-title">采集状态</div>
+          <div class="c-sub">微信数据采集运行状况</div>
+        </div>
+        <span style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:500;color:var(--green)">
+          <span class="st-dot d-green pulse"></span>系统正常
+        </span>
+      </div>
+      <div style="flex:1">
+        <dl class="kv">
+          <div><dt>采集方式</dt><dd>WAL 增量</dd></div>
+          <div><dt>最近采集</dt><dd><span class="st-dot d-green"></span>成功<span class="kv-sep">·</span><span class="num">今天 14:32</span></dd></div>
+          <div><dt>心跳</dt><dd><span class="st-dot d-green pulse"></span>系统正常</dd></div>
+        </dl>
+      </div>
+      <div class="kv-foot">
+        <a class="link" href="#">进入采集与通道
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 6.5 5.5 5.5-5.5 5.5"/></svg>
+        </a>
+      </div>
+    </article>
+
+  </main>
+</div>
+
+<!-- ======= 页脚 ======= -->
+<footer class="foot">
+  <div>ArchCore · 私有化部署 · 数据 100% 自有 · 永久只收不发</div>
+  <div>「让每一条客户消息,都变成企业可以理解和经营的业务资产。」 · 本页为高保真概念稿,全部数值均为示例数据</div>
+</footer>
+
+<!-- ======= AI 助手浮动入口(占位,不实现) ======= -->
+<button class="ai-fab" type="button" title="AI 助手(概念稿占位,未实现)">
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 4.2 13.6 10.4 19.8 12 13.6 13.6 12 19.8 10.4 13.6 4.2 12 10.4 10.4Z"/></svg>
+  AI 助手
+</button>
+
+</body>
+</html>
