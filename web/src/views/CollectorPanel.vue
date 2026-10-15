@@ -72,6 +72,11 @@ function inWhitelist(wxId: string) {
 
 <template>
   <div>
+    <div class="page-head">
+      <div class="page-kicker">系统 · 采集与通道</div>
+      <h1 class="page-title">采集与通道</h1>
+      <div class="page-standfirst">数据管道健康、白名单边界与版本冻结状态。</div>
+    </div>
     <div class="card">
       <h4>采集状态</h4>
       <el-descriptions :column="3" border>

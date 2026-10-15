@@ -81,10 +81,14 @@ async function claim() {
 
 <template>
   <div>
+    <div class="page-head">
+      <div class="page-kicker">业务 · 客户中心</div>
+      <h1 class="page-title" style="font-size:34px">{{ customer.name || "客户档案" }}</h1>
+      <div class="page-standfirst">
+        <el-link type="primary" @click="router.push('/customers')">← 返回客户列表</el-link>
+      </div>
+    </div>
     <div class="card">
-      <el-page-header :title="'客户列表'" @back="router.push('/customers')">
-        <template #content><b style="font-size: 18px">{{ customer.name }}</b></template>
-      </el-page-header>
       <el-descriptions :column="4" style="margin-top: 12px">
         <el-descriptions-item label="行业">{{ customer.industry || "-" }}</el-descriptions-item>
         <el-descriptions-item label="阶段">{{ customer.stage }}</el-descriptions-item>

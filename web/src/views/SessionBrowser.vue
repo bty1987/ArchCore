@@ -23,15 +23,15 @@ const tagInput = ref("");
 const SENDER_LABEL: Record<string, string> = {
   external: "客户方", internal: "我方同事", me: "我", system: "系统",
 };
-const TYPE_ICON: Record<string, string> = {
-  image: "🖼️", video: "🎬", voice: "🎤", file: "📄", emoji: "😄",
-  location: "📍", quote: "💬", appmsg: "🗂️", contact_card: "👤",
+const TYPE_LABEL: Record<string, string> = {
+  image: "图片", video: "视频", voice: "语音", file: "文件", emoji: "表情",
+  location: "位置", quote: "引用", appmsg: "链接/富载体", contact_card: "名片",
 };
 function isRich(m: any) {
   return m.msg_type !== "text" && m.msg_type !== "system";
 }
 function iconOf(m: any) {
-  return TYPE_ICON[m.msg_type] || "📎";
+  return TYPE_LABEL[m.msg_type] || "附件";
 }
 
 onMounted(async () => {
@@ -100,7 +100,19 @@ async function showContext(row: any) {
 
 <template>
   <div>
-    <div class="card" style="display: flex; gap: 12px">
+    <div class="page-head">
+      <div class="page-kicker">业务 · 消息检索</div>
+      <h1 class="page-title">消息检索</h1>
+      <div class="page-standfirst">按客户、关键词、时间、方向，定位任何一段对话——10 万条 &lt;2s。</div>
+    </div>
+
+    <section class="section">
+      <div class="section-head" style="margin-top:0">
+        <span class="section-no">01</span>
+        <span class="section-title">检索条件</span>
+        <span class="section-note">检索与导出均记入审计</span>
+      </div>
+      <div class="card" style="display: flex; gap: 12px">
       <el-select v-model="customerId" placeholder="按客户" style="width: 160px" clearable
                  @change="sessionId = null; load()">
         <el-option v-for="c in customers" :key="c.id" :label="c.name" :value="c.id" />
@@ -120,21 +132,24 @@ async function showContext(row: any) {
       <el-button type="primary" @click="load()">检索</el-button>
       <el-button :disabled="!sessionId" @click="doExport">导出本会话 CSV</el-button>
     </div>
-    <div class="card" style="padding: 8px 12px">
-      <span style="color:#94a3b8; font-size:12px">
-        提示：点击消息下方的 🏷 按钮可给关键消息打标签（如「报价」「承诺」），客户详情页会按标签汇总。
+    <div class="card" style="padding: 8px 12px; margin-top: 12px">
+      <span style="color: var(--ink-3, #6e675c); font-size:12px">
+        提示：点击消息下方的「标注」可给关键消息打标签（如「报价」「承诺」），客户详情页会按标签汇总。
       </span>
     </div>
+    </section>
 
-    <div class="card flow">
+    <section class="section">
+      <div class="section-head" style="margin-top:0">
+        <span class="section-no">02</span>
+        <span class="section-title">会话流</span>
+        <span class="section-note">按时间正序 · 点击消息查看上下文</span>
+      </div>
+      <div class="card flow">
       <div v-for="m in items" :key="m.id" class="msg" :class="m.sender_type" @click="showContext(m)">
         <div class="meta">
           {{ new Date(m.ts).toLocaleString() }} · {{ SENDER_LABEL[m.sender_type] || m.sender_type }}
           <el-tag v-if="m.recalled" size="small" type="info">已撤回</el-tag>
-        </div>
-        <div v-if="m.tags?.length" class="tags">
-          <el-tag v-for="t in m.tags" :key="t" size="small" type="warning" closable
-                  @close="removeTag(m, t)">#{{ t }}</el-tag>
         </div>
         <div v-if="m.tags?.length" class="tags">
           <el-tag v-for="t in m.tags" :key="t" size="small" type="warning" closable
@@ -146,7 +161,7 @@ async function showContext(row: any) {
           <a v-if="m.media_meta?.url" :href="m.media_meta.url" target="_blank"
              rel="noopener" class="link">查看链接 ↗</a>
         </div>
-        <el-button class="tagbtn" link size="small" @click="openTagDialog(m)">🏷 标注</el-button>
+        <el-button class="tagbtn" link size="small" @click="openTagDialog(m)">标注</el-button>
       </div>
       <el-dialog v-model="tagDialog" title="消息标注" width="360">
         <div v-if="tagMsg" style="margin-bottom: 10px; color: #475569; font-size: 13px">
@@ -167,7 +182,8 @@ async function showContext(row: any) {
       <div style="text-align: center; margin-top: 8px" v-if="nextCursor">
         <el-button @click="load(true)">加载更多</el-button>
       </div>
-    </div>
+      </div>
+    </section>
 
     <el-drawer v-model="contextMsg" title="消息上下文" size="45%">
       <div v-for="m in contextMsg || []" :key="m.id" class="msg" :class="m.sender_type">

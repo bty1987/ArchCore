@@ -84,7 +84,13 @@ async function test(id: number) {
 </script>
 
 <template>
-  <div class="card">
+  <div>
+    <div class="page-head">
+      <div class="page-kicker">系统 · 系统设置</div>
+      <h1 class="page-title">系统设置</h1>
+      <div class="page-standfirst">账号与角色、内部成员、词库、AI 与通知渠道。</div>
+    </div>
+    <div class="card">
     <el-tabs v-model="tab">
       <el-tab-pane label="账号" name="users">
         <el-table :data="users" size="small">
@@ -215,5 +221,6 @@ async function test(id: number) {
         </el-form>
       </el-tab-pane>
     </el-tabs>
+    </div>
   </div>
 </template>

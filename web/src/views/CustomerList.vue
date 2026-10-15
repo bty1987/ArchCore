@@ -43,56 +43,71 @@ async function doExport(id: number) {
 </script>
 
 <template>
-  <div class="card">
-    <div style="display: flex; gap: 12px; margin-bottom: 12px">
-      <el-input v-model="q" placeholder="搜索客户名" style="width: 220px" clearable @change="load" />
-      <el-select v-model="stage" placeholder="阶段" style="width: 140px" clearable @change="load">
-        <el-option v-for="s in STAGES" :key="s.value" :label="s.label" :value="s.value" />
-      </el-select>
-      <div style="flex: 1" />
-      <el-button type="primary" @click="dialog = true">新建客户</el-button>
+  <div>
+    <div class="page-head">
+      <div class="page-kicker">业务 · 客户中心</div>
+      <h1 class="page-title">客户中心</h1>
+      <div class="page-standfirst">一个微信群 ≈ 一位客户——沟通历史、健康度与阶段，一页看全。</div>
     </div>
 
-    <el-table :data="rows" @row-click="(r: any) => router.push(`/customers/${r.id}`)">
-      <el-table-column prop="name" label="客户" min-width="140" />
-      <el-table-column prop="industry" label="行业" width="110" />
-      <el-table-column label="阶段" width="90">
-        <template #default="{ row }">
-          {{ STAGES.find((s) => s.value === row.stage)?.label || row.stage }}
-        </template>
-      </el-table-column>
-      <el-table-column label="健康度" width="110">
-        <template #default="{ row }">
-          <el-tag v-if="row.health_level" :type="row.health_level === 'green' ? 'success' :
-            row.health_level === 'yellow' ? 'warning' : 'danger'">
-            {{ row.health_score }}
-          </el-tag>
-          <span v-else>-</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="session_count" label="会话数" width="80" />
-      <el-table-column prop="last_msg_at" label="最近消息" width="160" />
-      <el-table-column label="操作" width="90">
-        <template #default="{ row }">
-          <el-button link type="primary" @click.stop="doExport(row.id)">导出</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-
-    <el-dialog v-model="dialog" title="新建客户" width="420">
-      <el-form label-width="64">
-        <el-form-item label="名称"><el-input v-model="form.name" /></el-form-item>
-        <el-form-item label="行业"><el-input v-model="form.industry" /></el-form-item>
-        <el-form-item label="阶段">
-          <el-select v-model="form.stage">
+    <section class="section">
+      <div class="section-head">
+        <span class="section-no">01</span>
+        <span class="section-title">客户列表</span>
+        <span class="section-note">点击行进入客户档案 · 导出将记入审计</span>
+      </div>
+      <div class="card">
+        <div style="display: flex; gap: 12px; margin-bottom: 12px">
+          <el-input v-model="q" placeholder="搜索客户名" style="width: 220px" clearable @change="load" />
+          <el-select v-model="stage" placeholder="阶段" style="width: 140px" clearable @change="load">
             <el-option v-for="s in STAGES" :key="s.value" :label="s.label" :value="s.value" />
           </el-select>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialog = false">取消</el-button>
-        <el-button type="primary" @click="save">保存</el-button>
-      </template>
-    </el-dialog>
+          <div style="flex: 1" />
+          <el-button type="primary" @click="dialog = true">新建客户</el-button>
+        </div>
+
+        <el-table :data="rows" @row-click="(r: any) => router.push(`/customers/${r.id}`)">
+          <el-table-column prop="name" label="客户" min-width="140" />
+          <el-table-column prop="industry" label="行业" width="110" />
+          <el-table-column label="阶段" width="90">
+            <template #default="{ row }">
+              {{ STAGES.find((s) => s.value === row.stage)?.label || row.stage }}
+            </template>
+          </el-table-column>
+          <el-table-column label="健康度" width="110">
+            <template #default="{ row }">
+              <el-tag v-if="row.health_level" :type="row.health_level === 'green' ? 'success' :
+                row.health_level === 'yellow' ? 'warning' : 'danger'" effect="plain">
+                {{ row.health_score }}
+              </el-tag>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="session_count" label="会话数" width="80" />
+          <el-table-column prop="last_msg_at" label="最近消息" width="160" />
+          <el-table-column label="操作" width="90">
+            <template #default="{ row }">
+              <el-button link type="primary" @click.stop="doExport(row.id)">导出</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <el-dialog v-model="dialog" title="新建客户" width="420">
+          <el-form label-width="64">
+            <el-form-item label="名称"><el-input v-model="form.name" /></el-form-item>
+            <el-form-item label="行业"><el-input v-model="form.industry" /></el-form-item>
+            <el-form-item label="阶段">
+              <el-select v-model="form.stage">
+                <el-option v-for="s in STAGES" :key="s.value" :label="s.label" :value="s.value" />
+              </el-select>
+            </el-form-item>
+          </el-form>
+          <template #footer>
+            <el-button @click="dialog = false">取消</el-button>
+            <el-button type="primary" @click="save">保存</el-button>
+          </template>
+        </el-dialog>
+      </div>
+    </section>
   </div>
 </template>
