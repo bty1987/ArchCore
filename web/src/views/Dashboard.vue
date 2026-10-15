@@ -20,6 +20,11 @@ const healthCount = computed(() => {
   const d = data.value.health_distribution || {};
   return { red: d.red || 0, yellow: d.yellow || 0, green: d.green || 0 };
 });
+function fmtTime(v: string | undefined) {
+  if (!v) return "";
+  const d = new Date(v.includes("T") ? v : v.replace(" ", "T"));
+  return isNaN(d.getTime()) ? v : d.toLocaleString("zh-CN", { hour12: false });
+}
 const today = computed(() => {
   const d = new Date();
   const wd = ["日", "一", "二", "三", "四", "五", "六"][d.getDay()];
@@ -94,7 +99,7 @@ async function askAi() {
         <span
           v-if="data.last_sync"
           style="margin-left:auto; font-size:12px; color:var(--ink-3)"
-        >更新于 {{ data.last_sync.at }}</span>
+        >更新于 {{ fmtTime(data.last_sync.at) }}</span>
       </div>
       <div class="page-standfirst">「让每一条客户消息，都变成企业可以理解和经营的业务资产。」</div>
     </div>
@@ -104,7 +109,7 @@ async function askAi() {
       <div class="section-head">
         <span class="section-no">01</span>
         <span class="section-title">经营指标</span>
-        <span class="section-note">截至 {{ data.last_sync?.at || "现在" }}</span>
+        <span class="section-note">截至 {{ fmtTime(data.last_sync?.at) || "现在" }}</span>
       </div>
       <div class="kpi-row">
         <div class="kpi">

@@ -8,6 +8,25 @@ const rows = ref<any[]>([]);
 const rules = ref<any[]>([]);
 const LEVEL: Record<string, string> = { red: "danger", orange: "warning", yellow: "", gray: "info" };
 
+function fmtTs(v: string | undefined): string {
+  if (!v) return "";
+  const d = new Date(v.includes("T") ? v : v.replace(" ", "T"));
+  return isNaN(d.getTime()) ? v : d.toLocaleString("zh-CN", { hour12: false });
+}
+
+function alertDetail(row: any): string {
+  const d = row.detail || {};
+  const map: Record<string, () => string> = {
+    risk_keyword: () => `命中「${d.keyword}」：${d.preview || ""}`,
+    response_timeout: () => `客户方已等待 ${d.waited_minutes} 分钟（自 ${String(d.since || "").slice(0, 16)}）`,
+    customer_silence: () => `客户方已 ${d.silent_days} 天未发言（最近一次 ${String(d.last_external_at || "").slice(0, 10)}）`,
+    session_inactive: () => `群已 ${d.inactive_days} 天无任何消息，建议归档`,
+    collect_stale: () => `最近一次同步已超过 ${d.stale_minutes ?? 120} 分钟`,
+    member_left: () => "客户方成员退出了群聊",
+  };
+  return (map[row.rule_code]?.() ?? JSON.stringify(d));
+}
+
 async function load() {
   rows.value = (await listAlerts({ status: activeTab.value })).data;
   rules.value = (await listAlertRules()).data;
@@ -55,10 +74,12 @@ async function toggleRule(rule: any) {
         </template>
       </el-table-column>
       <el-table-column prop="rule_code" label="规则" width="150" />
-      <el-table-column label="详情" min-width="220">
-        <template #default="{ row }">{{ JSON.stringify(row.detail) }}</template>
+      <el-table-column label="详情" min-width="260">
+        <template #default="{ row }">{{ alertDetail(row) }}</template>
       </el-table-column>
-      <el-table-column prop="created_at" label="触发时间" width="160" />
+      <el-table-column label="触发时间" width="150">
+        <template #default="{ row }">{{ fmtTs(row.created_at) }}</template>
+      </el-table-column>
       <el-table-column label="操作" width="150" v-if="activeTab === 'pending'">
         <template #default="{ row }">
           <el-button size="small" type="primary" @click="handle(row.id, 'handled')">处理</el-button>
