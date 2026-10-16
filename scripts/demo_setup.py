@@ -131,7 +131,7 @@ def seed() -> None:
         n_sil, n_inact = alert_engine.silence_inspection(db, now), alert_engine.inactive_inspection(db, now)
         db.commit()
         print(f"[demo] 巡检完成: collect_stale={n_stale} silence={n_sil} inactive={n_inact}")
-        print("[demo] 登录: admin / demo123456")
+        print("[demo] 登录: admin / demo-arch-2026")
 
 
 if __name__ == "__main__":
