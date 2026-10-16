@@ -175,19 +175,20 @@ ArchCore/
 
 | 文档 | 说明 |
 |---|---|
-| [docs/wechat-local-access-survey.md](docs/wechat-local-access-survey.md) | 技术调研报告 v1.1（接入路线、同类工具全景、风险评估、9 项 P0 验证清单） |
-| [docs/wechat-archive-prd.md](docs/wechat-archive-prd.md) | PRD v0.2（功能需求、预警规则、版本规划、验收标准） |
-| [docs/system-design.md](docs/system-design.md) | 系统设计文档 v0.2（总体架构、技术选型、数据模型、关键流程、设计决策记录） |
-| [docs/development-plan.md](docs/development-plan.md) | 代码工程规划 v0.2（仓库结构、工程规范、迭代任务拆解 M0/MVP/V1、测试策略） |
-| [docs/ops-promotion-plan.md](docs/ops-promotion-plan.md) | 运维与推广规划 v0.2（监控/备份/版本冻结/Runbook/账号资产、三阶段推广路径/定价/交付流程） |
+| [docs/wechat-local-access-survey.md](docs/wechat-local-access-survey.md) | 技术调研报告 v1.1（接入路线、同类工具全景、风险评估、P0 验证清单实战结果——2026-10-15 追加口径声明） |
+| [docs/wechat-archive-prd.md](docs/wechat-archive-prd.md) | PRD v0.3（功能需求、预警规则、版本规划、验收标准；里程碑状态已同步） |
+| [docs/system-design.md](docs/system-design.md) | 系统设计文档 v0.3（总体架构、技术选型、数据模型、关键流程、设计决策记录） |
+| [docs/development-plan.md](docs/development-plan.md) | 代码工程规划 v0.3（仓库结构、工程规范、迭代任务拆解、测试策略；M0 执行结果已回填） |
+| [docs/ops-promotion-plan.md](docs/ops-promotion-plan.md) | 运维与推广规划 v0.3（监控/备份/版本冻结/Runbook/账号资产、三阶段推广路径/定价/交付流程） |
 | [docs/outbound-push-plan.md](docs/outbound-push-plan.md) | 主动推送消息方案 v0.2（默认永久只收不发；外发风险分级、工单管道与熔断的实施预案） |
 | [docs/compliance-plan.md](docs/compliance-plan.md) | 合规方案 v0.1（第三方个人信息告知、数据最小化、权限收敛、合同责任划分） |
-| [docs/test-plan.md](docs/test-plan.md) | 测试方案 v1.0（八层测试体系、46 个自动化用例清单、性能与冒烟、M0 真机验证项） |
-| [docs/local-deploy-guide.md](docs/local-deploy-guide.md) | 本机部署实操指南 v1.1（个人单机形态：fixture 跑通 → 4.x 解密归档 → 建档分析 → 备份排查） |
+| [docs/test-plan.md](docs/test-plan.md) | 测试方案 v1.1（九层测试体系、73 个自动化用例、性能与冒烟、M0 真机验证结论） |
+| [docs/local-deploy-guide.md](docs/local-deploy-guide.md) | 本机部署实操指南 v1.2（个人单机形态：一键安装/演示模式 → 4.1.8.67 自研解密归档 → 建档分析 → AI 能力 → 备份排查） |
 | [docs/retrospective-20260926.md](docs/retrospective-20260926.md) | 实战复盘与决策档案 v1.0（4.x 攻关时间线/决策档案/踩坑清单/生态地图/试错成本/方法论） |
 | [docs/customer-os/](docs/customer-os/) | Customer OS 产品方案五件套（竞品拆解/定位/PRD/架构/90天路线，2026-09 方向研究） |
 | [docs/customer-os-analysis.md](docs/customer-os-analysis.md) | Customer OS 衔接分析 v1.0（与 ArchCore 对比/领域模型映射/三条融合路径/决策点） |
-| [docs/productization-gap-analysis.md](docs/productization-gap-analysis.md) | 产品化差距分析 v1.1（四层差距盘点：交付力/支撑体系/合规/售前材料，P0 清单现状标注与 6~8 周节奏） |
+| [docs/productization-gap-analysis.md](docs/productization-gap-analysis.md) | 产品化差距分析 v1.2（四层差距盘点；开发类 P0 已落地，卡点收敛为支撑演练+版本通道） |
+| [deploy/install-windows.md](deploy/install-windows.md) | 单机部署手册 v2.0（交付形态：一键安装/进程守护/开机自启/验收清单/升级回滚） |
 | [docs/product-scenarios.md](docs/product-scenarios.md) | 应用场景与商业定位分析（愿景素材，见文首交付边界说明） |
 | [deploy/交付工具箱/](deploy/交付工具箱/) | 交付工程化：客户交付档案模板（版本冻结登记/账号台账/上线检查/验收签字）+ 媒体本体归档攻关任务卡（2026-10-01） |
 | [docs/合规文件包/](docs/合规文件包/) | 入群告知与员工知情话术模板 + 合同条款模板（角色/数据归属/账号风险/版本冻结/责任上限；待法务复核） |

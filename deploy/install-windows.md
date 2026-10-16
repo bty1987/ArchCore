@@ -1,80 +1,156 @@
-# ArchCore 单机部署手册（Windows 采集主机，MVP 形态）
+# ArchCore 单机部署手册（交付形态：Windows 采集主机）
 
-> 形态：一台 Windows 主机承载 微信客户端 + collector + server + SQLite + web 静态产物。
-> V1 平台可迁内网 Linux（collector 留在 Windows），见运维规划 2.1。
+> 形态：一台 Windows 主机承载 微信客户端 + collector + server + SQLite + 管理台静态产物。
+> V1 平台可迁内网 Linux（collector 留在 Windows），见[运维规划](../docs/ops-promotion-plan.md) 2.1。
+>
+> **与[本机部署指南](../docs/local-deploy-guide.md)的分工**：那份面向「个人自用」的完整实操（含日常使用、AI 配置、故障排查）；本文面向「交付部署」——一键安装、进程守护、开机自启、验收清单与升级回滚。
 
-> ⚠️ **版本口径更新（2026-10-01 标注，正式改写待 Windows 侧会话）**：本文写作于 3.9.12 时代。9-25~26 攻关后版本决策已变——**微信客户端冻结 4.1.8.67**（3.9 整代登录被拒，伪装无效），采集主轨=**自研解密管线（scripts/decrypt_wechat4.py，双引擎密钥+逐库派生+WAL 合并）**，非 pywxdump。本文凡"3.9.12"读作"4.1.8.67"、"pywxdump"读作"自研解密轨"，具体 config 键名以 collector/config.example.yaml 与复盘档案（docs/retrospective-20260926.md）为准。备机恢复的 RTO 流程同理由"装 3.9.12"改为"装 4.1.8.67 离线包"。
+> **版本口径（2026-10-15 正式改写）**：微信客户端**冻结 4.1.8.67**（3.9 整代登录被服务端拒，三次版本伪装实测无效）；采集主轨=**自研解密管线**（`scripts/decrypt_wechat4.py`：双引擎密钥提取 + 逐库派生 + WAL 合并），**非 pywxdump**（仅支持 3.x）。本文历史版本中的「3.9.12」读作「4.1.8.67」、「pywxdump」读作「自研解密轨」。
 
 ## 0. 前置条件
 
 - [ ] Windows 10/11 x64 主机，不休眠、不锁屏（RDP 断开策略已调整）
-- [ ] 微信 3.9.12（32 位官方保留版）离线安装包，**关闭自动更新**
-- [ ] 采集主号 + 备用号均已入群潜伏（运维规划 2.7），账号台账已建
-- [ ] 离线安装包已存档：Python 3.11+、本仓库产物（不依赖部署时外网下载）
+- [ ] **微信 4.1.8.67 离线安装包**已存档，自动更新确认关闭
+- [ ] 采集主号 + 备用号均已入群潜伏（[运维规划](../docs/ops-promotion-plan.md) 2.7），账号台账已建
+- [ ] 离线安装包已存档：Python 3.10+、Node.js 18+（构建管理台用）、本仓库产物——**不依赖部署时外网下载**
 - [ ] 版本组合已登记《采集管理页》（MVP-503 交付项）
 
-## 1. 安装平台服务端
+## 1. 一键安装（首选）
 
 ```bat
-:: 1) Python 3.11+ 与虚拟环境
-python -m venv D:\archcore\venv
-D:\archcore\venv\Scripts\pip install -e D:\archcore\server
-
-:: 2) 配置（生产值全部走环境变量或 .env，禁止写死）
-setx ARCHCORE_DB_URL sqlite:///D:/archcore/data/archcore.db
-setx ARCHCORE_MEDIA_DIR D:/archcore/data/media
-setx ARCHCORE_JWT_SECRET <32+ 位随机串>
-setx ARCHCORE_COLLECTOR_TOKEN <随机串，与采集端一致>
-setx ARCHCORE_COLLECTOR_WXID <采集号 wxid>
-setx ARCHCORE_ADMIN_BOOTSTRAP_PASSWORD <首次启动用，之后立即改密>
-
-:: 3) 数据库迁移
-cd D:\archcore\server
-D:\archcore\venv\Scripts\alembic upgrade head
-
-:: 4) 启动（NSSM 注册为 Windows 服务，进程守护见运维规划 2.2）
-D:\archcore\venv\Scripts\uvicorn archcore_server.main:app --host 0.0.0.0 --port 8000
+:: 取代码并安装（venv + 依赖 + 配置生成 + 数据库迁移 + 管理台构建，共七步）
+git clone https://gitee.com/bty1987/ArchCore.git D:\archcore
+cd /d D:\archcore
+install.bat
 ```
 
-首次启动自动创建 `admin` 账号（密码取 `ARCHCORE_ADMIN_BOOTSTRAP_PASSWORD`），**登录后立即改密并创建实名账号**。
+要点：
 
-## 2. 安装管理台前端
+- 交互询问**采集号 wxid**（真实 wxid，**不带多开实例后缀**，如 `wxid_xxx` 而非 `wxid_xxx_a694`——它决定消息方向判定）；
+- 生成 `start-server.bat`（含随机 JWT/采集 token 与 bootstrap 密码，**不入 git**）与 `collector\config.yaml`；
+- **已存在的配置文件一律保留**，重复执行安全（可安全重跑）；
+- 结束打印 bootstrap 密码；**首次登录会被强制改密**，改完重新登录。
+
+**先验收安装**：双击 `start-server.bat` → 浏览器开 `http://127.0.0.1:8000` → admin + bootstrap 密码 → 强制改密 → 进工作台。
+（想先看产品形态不碰真实数据：`run-demo.bat` 起隔离演示环境，admin / demo-arch-2026。）
+
+## 2. 手工安装（等价步骤，便于排查）
 
 ```bat
-cd D:\archcore\web && npm install && npm run build
-:: 产物 web/dist/ 交给 server 前的 Nginx/静态托管，或任意内网静态服务器
+cd /d D:\archcore
+python -m venv .venv
+.venv\Scripts\pip install -e server -e collector
+
+:: 配置（生产值全部走环境变量或 start-server.bat，禁止写死进代码）
+:: ARCHCORE_DB_URL / ARCHCORE_MEDIA_DIR / ARCHCORE_JWT_SECRET(32+ 位随机)
+:: ARCHCORE_COLLECTOR_TOKEN(随机，与采集端一致) / ARCHCORE_COLLECTOR_WXID(采集号 wxid)
+:: ARCHCORE_ADMIN_BOOTSTRAP_PASSWORD(首启用，登录后强制改密)
+
+cd server && ..\.venv\Scripts\alembic upgrade head && cd ..
 ```
 
-开发模式：`npm run dev`（已配置代理到 127.0.0.1:8000）。
-
-## 3. 安装采集端
+管理台构建：
 
 ```bat
-D:\archcore\venv\Scripts\pip install -e D:\archcore\collector
-
-copy D:\archcore\collector\config.example.yaml D:\archcore\collector\config.yaml
-:: 编辑 config.yaml：
-::   server_ingest_token  = 与服务端 ARCHCORE_COLLECTOR_TOKEN 一致
-::   collector_wxid       = 采集号 wxid
-::   source.type          = pywxdump（生产）；db_dir = 解密库目录
-::   whitelist.groups     = 业务群白名单（合规边界，白名单外数据不出微信目录）
+cd /d D:\archcore\web && npm install && npm run build
+:: 产物 web/dist/ 交给 server 静态托管或任意内网静态服务器
 ```
 
-调度：`archcore-collector` 常驻（APScheduler 小时级增量 + outbox 冲刷）；手动执行 `archcore-collector --full`（全量）或 `--once`（单次增量）。实时轨 `wcf_enabled: true` 仅在 M0 验证通过后开启。
+## 3. 微信客户端安装
 
-## 4. 历史导入与初始化（对应 PRD 关键流程 ①）
+1. 安装微信 **4.1.8.67**（64 位；官方下载页只留最新版，须用存档的离线包）；
+2. **关闭自动更新**（确认 `WeixinUpdate.exe` 不生效：改设置 + 必要时改名/断其网络）；
+3. 用采集号扫码登录（4.1.8.67 直接可登，无需任何伪装）；
+4. 记录数据目录：`xwechat_files/<账号>/db_storage/`（新装默认在用户根目录）。
 
-1. `archcore-collector --full` 全量导入（进度看 server 日志与 /ingest/health）；
-2. 管理台 → 采集管理：确认同步任务成功；
-3. 管理台 → 客户：把待认领群映射到客户档案（半天工作坊，见交付流程 3.5）；
-4. 系统设置：内部成员名单（sender_type 判定依据）、词库、通知渠道；
-5. 首份备份并做一次恢复验证（`python deploy/backup.py`）。
+## 4. 解密与采集
 
-## 5. 上线检查
+```bat
+cd /d D:\archcore
 
-逐项打勾《运维与推广规划》第 5 节清单（版本冻结、双号潜伏、对账无差异、通知实测、培训留痕、合同归档等）。
+:: 首次解密（管理员终端；微信保持登录运行以读取内存密钥）
+.venv\Scripts\python scripts\decrypt_wechat4.py
+:: 输出 data/wechat4_plain/<账号>/；密钥持久化 data/wechat4_key.json（之后无需微信在跑）
 
-## 6. 备份与恢复
+:: 全量历史导入
+.venv\Scripts\archcore-collector -c collector\config.yaml --full
 
-- 每日计划任务：`python D:\archcore\deploy\backup.py`（输出目录内网异地双份，加密保管）；
-- 恢复：备用机装微信 3.9.12 + Python → 还原 archcore.db 与 media/ → 启动服务 → 扫码登录（RTO ≤ 2h，每月演练）。
+:: 单次增量
+.venv\Scripts\archcore-collector -c collector\config.yaml --once
+```
+
+配置 `collector\config.yaml` 关键项（`install.bat` 已生成骨架）：
+
+```yaml
+source:
+  type: wechat4                                  # 4.x 主轨
+  db_dir: ./data/wechat4_plain/<账号>             # 解密输出目录
+whitelist:
+  allow_all: false                               # 商用必须 false（数据最小化，合规硬要求）
+  groups: []                                     # 业务群白名单（xxx@chatroom）
+  allow_dm: true
+send_enabled: false                              # 永久 false：归档系统只收不发
+```
+
+> **白名单是合规边界**：非白名单会话的数据不出微信目录、不进上报通道。商用部署严禁 `allow_all: true`。
+
+## 5. 服务化与开机自启
+
+采集端常驻：
+
+```bat
+:: 方式一：启动文件夹（最简单）
+:: 存为 %APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\archcore-collector.bat
+D:\archcore\.venv\Scripts\archcore-collector.exe -c D:\archcore\collector\config.yaml
+
+:: 方式二：任务计划
+schtasks /Create /TN "ArchCore-Collector" /TR "D:\archcore\.venv\Scripts\archcore-collector.exe -c D:\archcore\collector\config.yaml" /SC ONLOGON
+```
+
+**双自动同步**（推荐配置，本机实例即如此）：
+
+| 任务 | 内容 | 周期 |
+|---|---|---|
+| `ArchCore-Watch` | `scripts/watch_sync.py`（轮询消息库 mtime → 触发解密+采集），登录自启 | 分钟级 |
+| `ArchCore-Sync` | `scripts/sync-wechat4.bat`（`decrypt --force` + `collector --once`） | 每 30 分钟兜底 |
+
+```bat
+schtasks /Create /TN "ArchCore-Sync" /TR "D:\archcore\scripts\sync-wechat4.bat" /SC MINUTE /MO 30
+```
+
+采集健康自查：管理台「采集与通道」→ **管道仪表**（成功率/平均耗时/最近成败/每日消息量）。验收计划任务时必须查 `LastTaskResult`（登记在[踩坑记录](../docs/retrospective-20260926.md)）。
+
+服务端常驻：`start-server.bat` 已含启动逻辑（alembic 幂等 + uvicorn）；长期部署建议同样用启动文件夹/任务计划托管。
+
+## 6. 交付验收清单（每客户一套）
+
+- [ ] 微信 **4.1.8.67** 安装且自动更新已关；离线包已存档（唯一回滚手段）
+- [ ] 采集主号 + 备用号均已入群潜伏；台账已登记
+- [ ] collector/服务端进程守护配置；主机不休眠不锁屏
+- [ ] 历史导入完成且对账视图无差异
+- [ ] 群→客户映射完成；内部成员名单配置
+- [ ] 通知渠道测试通过（企微 webhook 实发成功）
+- [ ] **备份任务运行且首份备份已做恢复验证**（未验证的备份 = 没有备份）
+- [ ] 版本冻结信息已登记到采集管理页
+- [ ] 管理员/员工培训完成；员工知情沟通留痕；客户方成员入群告知话术已按[合规方案](../docs/compliance-plan.md)使用
+- [ ] 合同/免责条款签署归档
+
+## 7. 备份与恢复（RTO ≤ 2 小时）
+
+```bat
+:: 每日 03:00 自动备份（数据库 + media + 配置）
+schtasks /Create /TN "ArchCore-Backup" /TR "D:\archcore\.venv\Scripts\python.exe D:\archcore\deploy\backup.py --db D:\archcore\data\archcore.db --media D:\archcore\data\media --config D:\archcore\collector\config.yaml --out D:\archcore\backups" /SC DAILY /ST 03:00
+```
+
+备份介质加密保管，本机 + 内网异地双份（禁止公有云盘）。**恢复流程**：备用机装 Python + 微信 **4.1.8.67** → 还原 `archcore.db`/`media/`/配置 → 启动服务 → 重新扫码登录 → 恢复采集。**每季度真实演练一次**。
+
+## 8. 升级与回滚（重要）
+
+**默认一切冻结**：微信版本、本仓库版本、Python 依赖全部锁定，禁止「顺手升级」。
+
+- **微信被自动升级导致解密失效**（管道仪表会报 HMAC 异常/表结构不符）→ 用离线包**回滚 4.1.8.67** → 删除 `data/wechat4_key.json` → 重新登录后重跑解密（详见[本机部署指南](../docs/local-deploy-guide.md) 12.2）；
+- **本仓库升级**：`git pull` → `pip install -e server -e collector` → `alembic upgrade head` → 重启服务（客户侧尚无自动升级通道，属规划项 #13）。
+
+---
+
+*ArchCore 单机部署手册 v2.0（2026-10-15 正式改写，取代 3.9.12 时代版本）· 内部资料。配套：[本机部署指南](../docs/local-deploy-guide.md)（个人自用完整实操）· [运维与推广规划](../docs/ops-promotion-plan.md)（日历/Runbook/账号资产）。*

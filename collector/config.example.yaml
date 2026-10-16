@@ -7,8 +7,8 @@ collector_wxid: "wxid_xxxxx"                     # 采集号自身 wxid（sender
 state_db: ./data/collector_state.db
 
 source:
-  type: fixture            # fixture（演示）| pywxdump（3.x）| wechat4（4.x 降级路线主轨）
-  db_dir: ""               # pywxdump：解密库目录；wechat4：明文库目录（先跑 scripts/decrypt_wechat4.py）
+  type: fixture            # fixture（演示）| wechat4（4.x 主轨）| pywxdump（3.x 遗留，路线已终结）
+  db_dir: ""               # wechat4：自研解密输出目录（先跑 scripts/decrypt_wechat4.py）；pywxdump：旧解密库目录
   fixture_path: ./data/fixture_wechat.db
 
 whitelist:                 # F1-6 合规边界：白名单外数据不出微信目录

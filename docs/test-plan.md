@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| 文档版本 | v1.0 |
-| 日期 | 2026-09-23 |
-| 状态 | MVP 代码落地随附；持续维护 |
+| 文档版本 | v1.1（2026-10-15 修订：路线口径与用例数同步现状） |
+| 日期 | 2026-09-23（v1.1 修订 2026-10-15） |
+| 状态 | 随代码持续维护；路线锚定微信 4.1.8.67 |
 | 上游文档 | [代码工程规划 v0.2](development-plan.md) §6 · [PRD v0.2](wechat-archive-prd.md) §9 |
 | 密级 | 内部 |
 
@@ -21,14 +21,15 @@
 | L5 性能 | 10 万条灌库脚本 | `scripts/perf_check.py` | ✅ FTS 50ms / 组合 1ms（<2s 达标） |
 | L6 进程级冒烟 | 真实 uvicorn + urllib 全链路 | 本文档 §4（脚本化） | ✅ 5 步全过 |
 | L7 前端 | Vite build + 手工验收清单 | 本文档 §5 | ✅ build 通过 / 清单待真机 |
-| L8 M0 真机验证 | 微信 3.9.12 / 4.x 实机 | 调研报告第九节 9 项 | ⏳ 需真实环境，未执行 |
+| L8 M0 真机验证 | 微信 4.1.8.67 实机 | 调研报告第九节 | ✅ 2026-09-25~26 完成（登录/解密 17 库零异常/端到端归档检索） |
+| L9 工具链离线自测 | Frida hook 解析逻辑 mock 断言 | `research/hook/selftest.py` 等 | ✅ 收侧 17 字段 + 发送信封 13 字段 |
 
 ## 2. 运行方式
 
 ```bat
-:: 全部单元/API/链路/迁移测试（46 个）
-cd server   && ..\.venv\Scripts\python -m pytest tests -q      # 33 passed
-cd collector && ..\.venv\Scripts\python -m pytest tests -q     # 13 passed
+:: 全部单元/API/链路/迁移测试（73 个）
+cd server   && ..\.venv\Scripts\python -m pytest tests -q      # 50 passed
+cd collector && ..\.venv\Scripts\python -m pytest tests -q     # 23 passed
 
 :: 代码规范
 python -m ruff check server collector scripts && python -m ruff format --check server collector scripts
@@ -116,11 +117,17 @@ python scripts/gen-fixtures.py --out ./data/fixture_wechat.db
 - [ ] 系统设置四 Tab：账号/成员名单/词库/通知渠道（含企微 webhook「测试」实发）；
 - [ ] sales 账号登录验证数据边界（只见自己客户）。
 
-## 6. M0 真机验证项（代码无法覆盖，排期执行）
+## 6. M0 真机验证项（✅ 2026-09-25~26 已完成）
 
-调研报告第九节 #1~#9：3.9.12 小号登录、WCF 回调链路与 32 位匹配、PyWxDump 字段质量、4.x 解密兜底、持续挂机稳定性、群成员可得性、撤回/红包残留口径。**全部通过前，MVP 验收 #1（与客户端人工核对一致率）无法执行**——该验收需在 M0 通过后用真实库抽样 200 条核对。
+实测结论（详见[复盘档案](retrospective-20260926.md)）：微信 **4.1.8.67 登录成功**（3.9 整代被服务端拒，版本伪装无效）；**自研 4.x 解密管线 17 库零 HMAC 异常**；端到端归档→检索→预警验证通过；群成员可得性由 4.x `contact.db` 的 `chatroom_member` 提供（不再依赖已移除的 WCF 轨）。
+
+**剩余待补**：MVP 验收 #1（与客户端人工核对一致率）——需用真实库抽样 200 条核对，排入阶段 0 试点。
+
+> 附：2026-10 新增产品化能力的测试入口 `server/tests/test_p1_quickwins.py`（AI 周报/管家/管道仪表）与 `test_auth_rbac.py` 的改密用例。
 
 ## 7. 质量门禁（DoD，工程规划 §7 重申）
 
-每次合入：ruff 0 告警 → pytest 全绿（46+）→ 冒烟通过 → Conventional Commit → PR 合入。
+每次合入：ruff 0 告警 → pytest 全绿（73：server 50 + collector 23）→ 冒烟通过 → Conventional Commit → PR 合入。
+
+**测试数据含时间的红线**：断言依赖「近 N 天」窗口的用例，时间戳必须相对 `utcnow` 且避开 UTC 午夜档（v1.1 修订前有两处硬编码日期用例在翻月/跨日后必炸，已修）。
 每个迭代：可运行可演示 + 本文档清单同步更新。
