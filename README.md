@@ -95,6 +95,12 @@ ArchCore 是一套**跑在你自己电脑/内网**的微信客户智能经营系
 |---|---|
 | ![客户中心](docs/screenshots/customers.png) | ![洞察分析](docs/screenshots/insights.png) |
 
+**系统侧**——采集与通道：管道仪表（成功率/耗时/最近成败/每日消息量）+ 白名单合规边界 + 版本冻结登记；系统设置：当前账号自改密码与安全基线：
+
+| 采集与通道 | 系统设置 · 安全 |
+|---|---|
+| ![采集与通道](docs/screenshots/collector.png) | ![系统设置](docs/screenshots/settings.png) |
+
 ## 与主流 SCRM 的区别
 
 如果说主流 SCRM 解决的是"客户怎么加进来、怎么标准化运营"，ArchCore 解决的是更往后、也最容易流失的两件事：**客户资产沉淀**与**经营洞察**。

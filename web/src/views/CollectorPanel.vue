@@ -8,6 +8,11 @@ import { ElMessage } from "element-plus";
 
 const health = ref<any>({});
 const pipe = ref<any>({});
+function fmtTime(v: string | undefined) {
+  if (!v) return "";
+  const d = new Date(v.includes("T") ? v : v.replace(" ", "T"));
+  return isNaN(d.getTime()) ? v : d.toLocaleString("zh-CN", { hour12: false });
+}
 const sessions = ref<any[]>([]);
 const rules = ref<any[]>([]);
 const allowAll = ref(false);
@@ -105,11 +110,11 @@ function inWhitelist(wxId: string) {
         </div></el-col>
         <el-col :span="7"><div class="pipe-kpi">
           <div class="k">最近成功</div>
-          <div class="s" style="margin-top:6px">{{ pipe.last_success?.at || "-" }}（{{ pipe.last_success?.type || "-" }}）</div>
+          <div class="s" style="margin-top:6px">{{ fmtTime(pipe.last_success?.at) || "-" }}（{{ pipe.last_success?.type || "-" }}）</div>
         </div></el-col>
         <el-col :span="7"><div class="pipe-kpi">
           <div class="k">最近失败</div>
-          <div class="s" style="margin-top:6px">{{ pipe.last_failed?.at || "无" }}<template v-if="pipe.last_failed"> · {{ pipe.last_failed.log }}</template></div>
+          <div class="s" style="margin-top:6px">{{ fmtTime(pipe.last_failed?.at) || "无" }}<template v-if="pipe.last_failed"> · {{ pipe.last_failed.log }}</template></div>
         </div></el-col>
       </el-row>
       <div v-if="(pipe.messages_daily || []).length" style="display:flex; align-items:flex-end; gap:3px; height:64px; margin-top:14px">
