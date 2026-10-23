@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #F6F3EC;
+         font-family: "Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+         color: #211D19; }
+  .canvas { width: 1400px; padding: 30px 34px; position: relative; }
+  .boundary { border: 2px dashed #C15F3C; border-radius: 10px; padding: 22px 24px 18px; position: relative; }
+  .boundary-label { position: absolute; top: -12px; left: 28px; background: #F6F3EC;
+          padding: 0 12px; font-size: 14px; letter-spacing: 0.2em; color: #A34A28; font-weight: 600; }
+
+  .row { display: flex; align-items: stretch; gap: 0; }
+  .col-host { width: 430px; flex: none; }
+  .col-arrow { width: 150px; flex: none; display: flex; flex-direction: column;
+               align-items: center; justify-content: center; }
+  .col-server { flex: 1; }
+
+  .box { background: #FDFCF9; border: 1px solid #DFD8C7; border-radius: 6px; padding: 12px 16px; }
+  .host-title, .srv-title { font-family: Georgia, "Noto Serif SC", "SimSun", serif;
+          font-size: 20px; font-weight: 600; color: #211D19; margin-bottom: 2px; }
+  .host-sub, .srv-sub { font-size: 12.5px; color: #6E675C; margin-bottom: 12px; }
+
+  .node { background: #FDFCF9; border: 1px solid #DFD8C7; border-radius: 5px;
+          padding: 10px 14px; margin-bottom: 0; }
+  .node .n { font-size: 15.5px; font-weight: 600; color: #211D19; }
+  .node .d { font-size: 12.5px; color: #6E675C; margin-top: 3px; line-height: 1.5; }
+  .node.dark { background: #211D19; border-color: #211D19; }
+  .node.dark .n { color: #F6F3EC; }
+  .node.dark .d { color: #B7AF9F; }
+  .node.accent { border-color: #E5B49E; background: #FBEFE9; }
+
+  .varrow { display: flex; flex-direction: column; align-items: center; padding: 4px 0; }
+  .varrow .lbl { font-size: 12px; color: #6E675C; margin: 3px 0; text-align: center; line-height: 1.4; }
+  .varrow .stem { width: 2px; height: 12px; background: #A34A28; }
+  .varrow .head { border-left: 6px solid transparent; border-right: 6px solid transparent;
+          border-top: 9px solid #A34A28; }
+
+  .harrow { display: flex; align-items: center; width: 100%; }
+  .harrow .stem { flex: 1; height: 2px; background: #A34A28; }
+  .harrow .head { border-top: 7px solid transparent; border-bottom: 7px solid transparent;
+          border-left: 10px solid #A34A28; }
+  .flow-lbl { font-size: 12.5px; color: #A34A28; text-align: center; margin-bottom: 8px;
+          font-weight: 600; line-height: 1.5; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .grid .node { margin-bottom: 0; }
+  .store { margin-top: 8px; background: #EFEAE0; border: 1px solid #DFD8C7; border-radius: 5px;
+          padding: 8px 14px; font-size: 13px; color: #5C554A; }
+  .store b { color: #211D19; }
+
+  .outs { display: flex; gap: 14px; margin-top: 16px; }
+  .outs .box { flex: 1; }
+  .outs .o { font-size: 15px; font-weight: 600; color: #211D19; }
+  .outs .od { font-size: 12.5px; color: #6E675C; margin-top: 3px; }
+
+  .note { margin-top: 14px; text-align: center; font-size: 13px; color: #6E675C; }
+  .note b { color: #A34A28; }
+</style>
+</head>
+<body>
+<div class="canvas" id="arch">
+  <div class="boundary">
+    <div class="boundary-label">数据不出内网</div>
+    <div class="row">
+      <!-- 左：Windows 采集主机 -->
+      <div class="col-host">
+        <div class="box" style="background:#EFEAE0">
+          <div class="host-title">Windows 采集主机</div>
+          <div class="host-sub">与登录微信同机 · 被动读取，不注入、不修改微信进程</div>
+
+          <div class="node"><div class="n">微信客户端 4.1.8.67</div>
+            <div class="d">本地加密 SQLite（SQLCipher 4）· 版本冻结</div></div>
+          <div class="varrow"><div class="stem"></div><div class="head"></div>
+            <div class="lbl">内存取钥 · 逐库派生 · WAL 合并</div></div>
+          <div class="node accent"><div class="n">自研解密管线</div>
+            <div class="d">scripts/decrypt_wechat4.py · 双引擎密钥提取</div></div>
+          <div class="varrow"><div class="stem"></div><div class="head"></div>
+            <div class="lbl">明文库 data/wechat4_plain</div></div>
+          <div class="node"><div class="n">collector 采集端</div>
+            <div class="d">wechat4 源（只读）· 标准化/指纹去重 · 白名单过滤<br>批量上报 / 断点续传（outbox 退避）</div></div>
+        </div>
+      </div>
+
+      <!-- 中：HTTP 上报箭头 -->
+      <div class="col-arrow">
+        <div class="flow-lbl">HTTP 上报<br>/api/v1/ingest<br>（唯一通道）</div>
+        <div class="harrow"><div class="stem"></div><div class="head"></div></div>
+      </div>
+
+      <!-- 右：server 服务端 -->
+      <div class="col-server">
+        <div class="box" style="background:#EFEAE0">
+          <div class="srv-title">server 服务端</div>
+          <div class="srv-sub">FastAPI · SQLAlchemy · APScheduler · JWT/RBAC/审计</div>
+          <div class="grid">
+            <div class="node"><div class="n">ingest 接收</div><div class="d">批量入库 · svr_id 幂等去重</div></div>
+            <div class="node"><div class="n">客户 / 映射 / 检索</div><div class="d">群即客户建档 · FTS5 全文检索</div></div>
+            <div class="node"><div class="n">分析引擎</div><div class="d">日聚合 · 健康度 · 响应时效</div></div>
+            <div class="node"><div class="n">预警引擎</div><div class="d">规则扫描 · 冷却 · 处理闭环</div></div>
+            <div class="node"><div class="n">AI 服务</div><div class="d">会话摘要 · 经营周报 · 助手问答</div></div>
+            <div class="node"><div class="n">通知分发</div><div class="d">站内 · 企业微信 · 邮件（留痕）</div></div>
+          </div>
+          <div class="store">存储：<b>SQLite 单文件（WAL + FTS5）</b> · 备份即拷贝文件</div>
+        </div>
+
+        <div class="outs">
+          <div class="box"><div class="o">web 管理台</div>
+            <div class="od">Vue3 · Element Plus · ECharts · 暖纸账本 UI</div></div>
+          <div class="box"><div class="o">定时任务</div>
+            <div class="od">增量同步兜底 · 巡检 · AI 周报（周一 09:00）</div></div>
+          <div class="box"><div class="o">通知推送</div>
+            <div class="od">企业微信机器人 / 邮件</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note">采集路线：<b>被动读盘</b>（不注入、不修改微信进程）· 实时性：WAL 监听分钟级 + 30 分钟定时兜底 · 系统永久只收不发</div>
+</div>
+</body>
+</html>

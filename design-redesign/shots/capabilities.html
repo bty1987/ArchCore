@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #F6F3EC;
+         font-family: "Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+         color: #211D19; }
+  .wrap { width: 1200px; padding: 34px 44px 26px 96px; position: relative; }
+
+  /* 左侧「能力生长轴」 */
+  .axis { position: absolute; left: 44px; top: 40px; bottom: 96px; width: 4px;
+          background: #C15F3C; border-radius: 2px; }
+  .axis::before { content: ""; position: absolute; top: -14px; left: -6px;
+          border-left: 8px solid transparent; border-right: 8px solid transparent;
+          border-bottom: 14px solid #C15F3C; }
+  .axis-text { position: absolute; left: 8px; top: 46%; writing-mode: vertical-rl;
+          letter-spacing: 6px; font-size: 13px; color: #A34A28; }
+
+  .layer { display: flex; align-items: baseline; gap: 20px;
+           background: #FDFCF9; border: 1px solid #DFD8C7; border-radius: 6px;
+           padding: 15px 24px; margin-bottom: 10px; }
+  .tag { width: 112px; white-space: nowrap; flex: none; font-weight: 600; font-size: 20px;
+         font-family: Georgia, "Noto Serif SC", "SimSun", serif; color: #A34A28; }
+  .desc { font-size: 16.5px; color: #5C554A; letter-spacing: 0.02em; }
+
+  .layer.ai { background: #FBEFE9; border-color: #E5B49E; }
+  .layer.base { background: #211D19; border-color: #211D19; }
+  .layer.base .tag { color: #E5B49E; }
+  .layer.base .desc { color: #F6F3EC; }
+
+  .foot { margin-top: 18px; padding-top: 14px; border-top: 1px solid #DFD8C7;
+          text-align: center; font-size: 15px; color: #6E675C; letter-spacing: 0.12em; }
+  .foot b { color: #211D19; }
+</style>
+</head>
+<body>
+<div class="wrap" id="cap">
+  <div class="axis"></div>
+  <div class="axis-text">能 力 生 长</div>
+
+  <div class="layer ai"><div class="tag">AI 助手</div><div class="desc">自然语言查数据 · 答案附相关消息引用，有据可查</div></div>
+  <div class="layer ai"><div class="tag">AI 周报</div><div class="desc">统计快照 + AI 撰写一页经营周报 · 每周一自动生成并推送</div></div>
+  <div class="layer"><div class="tag">经营分析</div><div class="desc">消息趋势 · 响应时长（P50/P90）· 客户活跃排行</div></div>
+  <div class="layer"><div class="tag">AI 摘要</div><div class="desc">会话智能摘要 · 自动标签（可接内网/私有 LLM）</div></div>
+  <div class="layer"><div class="tag">智能预警</div><div class="desc">响应超时 · 投诉 · 报价 · 竞品 · 客户沉默 → 实时推送企微/邮件，处理闭环</div></div>
+  <div class="layer"><div class="tag">客户画像</div><div class="desc">群即客户建档 · 标签体系 · 健康度红黄绿 · 历史一页看全</div></div>
+  <div class="layer"><div class="tag">秒级检索</div><div class="desc">客户 / 关键词 / 时间 / 发送者组合过滤 · 10 万条 &lt;2s</div></div>
+  <div class="layer"><div class="tag">管道自检</div><div class="desc">同步成功率 · 同步耗时 · 最近成败 · 每日消息量可视化</div></div>
+  <div class="layer base"><div class="tag">会话资产化</div><div class="desc">历史全量导入 + 增量自动同步（WAL 分钟级 + 30 分钟兜底）· 富内容解析</div></div>
+
+  <div class="foot">底座：<b>私有化部署 · 数据不出内网 · 永久只收不发</b></div>
+</div>
+</body>
+</html>
