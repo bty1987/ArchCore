@@ -1,15 +1,19 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import {
   listUsers, createUser, updateUser, listMembers, createMember, deleteMember,
   listKeywords, createKeyword, deleteKeyword, listChannels, createChannel, testChannel,
   keywordStats,
-  listAuditLogs,
+  listAuditLogs, changePassword,
 } from "../api/client";
 import { api } from "../api/client";
+import { useAuth } from "../stores/auth";
 import { ElMessage } from "element-plus";
 
-const tab = ref("users");
+const auth = useAuth();
+const router = useRouter();
+const tab = ref("security");
 const users = ref<any[]>([]);
 const members = ref<any[]>([]);
 const keywords = ref<any[]>([]);
@@ -18,14 +22,35 @@ const channels = ref<any[]>([]);
 const aiCfg = ref<any>({ api_base: "", api_key: "", model: "" });
 const auditLogs = ref<any[]>([]);
 
+// —— 修改自己密码（P1 补缺：此前仅强制改密页可达） ——
+const pwd = ref({ old: "", new1: "", new2: "" });
+const pwdLoading = ref(false);
+const pwdReady = computed(
+  () => pwd.value.old && pwd.value.new1.length >= 8 && pwd.value.new1 === pwd.value.new2
+);
+async function submitPassword() {
+  pwdLoading.value = true;
+  try {
+    await changePassword(pwd.value.old, pwd.value.new1);
+    ElMessage.success("密码已更新，请用新密码重新登录");
+    auth.logout();
+    router.push("/login");
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.detail || "修改失败");
+  } finally {
+    pwdLoading.value = false;
+  }
+}
+
 const newUser = ref({ username: "", password: "", display_name: "", role: "sales" });
 const newMember = ref({ match_type: "wxid", match_value: "", display_name: "" });
 const newKeyword = ref({ category: "risk", word: "" });
 const newChannel = ref({ type: "wecom", name: "", webhook_url: "", min_level: "orange" });
 
 async function load() {
-  users.value = (await listUsers()).data;
-  members.value = (await listMembers()).data;
+  // sales 无用户管理/名单权限：逐项容错，不让单个 403 打崩整个设置页
+  try { users.value = (await listUsers()).data; } catch { users.value = []; }
+  try { members.value = (await listMembers()).data; } catch { members.value = []; }
   keywords.value = (await listKeywords()).data;
   try {
     const hits = (await keywordStats(30)).data as any[];
@@ -92,6 +117,32 @@ async function test(id: number) {
     </div>
     <div class="card">
     <el-tabs v-model="tab">
+      <el-tab-pane label="安全" name="security">
+        <el-descriptions :column="3" size="small" style="margin-bottom: 14px">
+          <el-descriptions-item label="当前账号">{{ auth.username }}</el-descriptions-item>
+          <el-descriptions-item label="角色">{{ auth.role }}</el-descriptions-item>
+          <el-descriptions-item label="会话">JWT · 8 小时</el-descriptions-item>
+        </el-descriptions>
+        <el-form label-width="90" style="max-width: 480px" @submit.prevent="submitPassword">
+          <el-form-item label="当前密码">
+            <el-input v-model="pwd.old" type="password" show-password />
+          </el-form-item>
+          <el-form-item label="新密码">
+            <el-input v-model="pwd.new1" type="password" show-password
+                      placeholder="至少 8 位" />
+          </el-form-item>
+          <el-form-item label="确认新密码">
+            <el-input v-model="pwd.new2" type="password" show-password />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="pwdLoading" :disabled="!pwdReady"
+                       native-type="submit">
+              更新密码（更新后需重新登录）
+            </el-button>
+          </el-form-item>
+        </el-form>
+      </el-tab-pane>
+
       <el-tab-pane label="账号" name="users">
         <el-table :data="users" size="small">
           <el-table-column prop="username" label="用户名" />
