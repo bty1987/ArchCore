@@ -134,6 +134,11 @@ def seed() -> None:
             sess.last_msg_at = new_max
         db.commit()
 
+        # 3.5 今日铺量:走标准 /ingest 通道给「今天」注入合成消息(工作台今日消息量不再空)
+        #     只铺 ABC 群与客户A——客户B 保持沉默预警、DEF 群保持不活跃预警,场景不破坏;
+        #     svr_id 按日幂等,同日重复 seed 不重复入库
+        _seed_today_messages()
+
         # 4. 聚合 + 巡检立即跑一轮(演示打开即有数据/预警)
         aggregate.run(factory)
         n_stale = alert_engine.collect_stale_inspection(db, now)
@@ -141,6 +146,64 @@ def seed() -> None:
         db.commit()
         print(f"[demo] 巡检完成: collect_stale={n_stale} silence={n_sil} inactive={n_inact}")
         print("[demo] 登录: admin / demo-arch-2026(seed 直设,不触发强制改密)")
+
+
+def _seed_today_messages() -> None:
+    """给今天注入业务感合成消息(demo 专用;server 须已启动,失败只警告不中断)。"""
+    import random
+
+    import httpx
+
+    rng = random.Random(20261015)
+    now = datetime.now()
+    start = now.replace(hour=8, minute=0, second=0, microsecond=0)
+    if start >= now:
+        start = now.replace(hour=0, minute=30, second=0, microsecond=0)
+    span = max((now - start).total_seconds() - 300, 600)  # 铺到 now-5min,至少 10 分钟窗
+
+    plans = [
+        # (会话 wx_id/type/name, 发送者池, 条数, 内容池)
+        (("11111111@chatroom", "group", "ABC项目群"),
+         ["wxid_client_a", "wxid_staff_001", "wxid_staff_002", "wxid_client_b"], 14,
+         ["第二批设备的排期出来了吗", "本周五前交付 A 仓,下周二 B 仓", "报价单我更新了,含税价按上次约定",
+          "发票抬头发我一下,今天开出来", "物流单号稍后同步到群里", "验收标准按合同附件三执行",
+          "这批要加急,运费我们承担", "收到,我这边今天安排质检", "合同扫描件已归档,需要的话我发你",
+          "下周一例会改成线上,链接稍后发", "备件库存还剩 40 套,建议补货", "客户问能不能提前两天",
+          "工地那边今天反馈进度正常", "好的,按这个节奏推进"]),
+        (("wxid_client_a", "dm", "客户A-张总"),
+         ["wxid_client_a", "wxid_staff_001"], 4,
+         ["张总,上周说的方案我整理好了", "下午三点方便通个电话吗", "方案里报价部分我们再对一下",
+          "好,那按电话里说的,周五前给我修订版"]),
+    ]
+    day = now.strftime("%Y%m%d")
+    messages = []
+    seq = 0
+    for session, senders, count, contents in plans:
+        for i in range(count):
+            seq += 1
+            ts = start + timedelta(seconds=span * (i + rng.uniform(0, 0.8)) / count)
+            if ts >= now:
+                ts = now - timedelta(minutes=5)
+            messages.append({
+                "session": {"wx_id": session[0], "type": session[1], "name": session[2]},
+                "svr_id": f"demo_today_{day}_{seq}",
+                "sender_wxid": rng.choice(senders),
+                "msg_type": "text",
+                "content": contents[i % len(contents)],
+                "ts": ts.isoformat(sep=" ", timespec="seconds"),
+                "source": "demo",
+            })
+    try:
+        resp = httpx.post(
+            "http://127.0.0.1:8000/api/v1/ingest/messages",
+            json={"schema_ver": 1, "messages": messages},
+            headers={"X-Collector-Token": DEMO_TOKEN},
+            timeout=30,
+        )
+        stat = resp.json().get("stats", resp.json())
+        print(f"[demo] 今日铺量: {stat}")
+    except Exception as exc:  # server 未起或端口占用:不阻断 seed 其余步骤
+        print(f"[demo] 今日铺量跳过(server 未就绪): {exc}")
 
 
 if __name__ == "__main__":
