@@ -5,15 +5,18 @@ from tests.conftest import ingest, msg
 
 
 def _seed(client, admin_headers):
+    # ts 相对 now:统计端点窗口「近 30 天」,硬编码日期翻线必炸(第三颗时间炸弹,2026-10-23 实锤)
+    from datetime import datetime, timedelta
+    t0 = (datetime.utcnow() - timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)
     c = client.post("/api/v1/customers", headers=admin_headers,
                     json={"name": "增强测试客户", "owner_user_id": 1}).json()
     ingest(client, [
         msg(svr_id="e1", sender="wxid_outside", content="这是报价单相关内容",
-            ts="2026-09-20 10:00:00"),
+            ts=(t0).isoformat(sep=" ")),
         msg(svr_id="e2", sender="wxid_outside", content="合同条款再确认下",
-            ts="2026-09-20 11:00:00"),
+            ts=(t0 + timedelta(minutes=60)).isoformat(sep=" ")),
         msg(svr_id="e3", sender="wxid_collector", content="好的收到",
-            ts="2026-09-20 11:10:00"),
+            ts=(t0 + timedelta(minutes=70)).isoformat(sep=" ")),
     ])
     sessions = client.get("/api/v1/sessions", params={"claimed": False},
                           headers=admin_headers).json()

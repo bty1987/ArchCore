@@ -28,7 +28,8 @@ export const changePassword = (oldPassword: string, newPassword: string) =>
 export const generateReport = (days = 7) => api.post(`/analytics/report?days=${days}`);
 export const getLastReport = () => api.get("/analytics/report");
 export const pipelineStats = () => api.get("/ingest/pipeline-stats");
-export const assistantQuery = (question: string) => api.post("/assistant/query", { question });
+export const assistantQuery = (question: string, history?: { role: string; content: string }[]) =>
+  api.post("/assistant/query", { question, history });
 
 // —— 客户/会话 ——
 export const listCustomers = (params?: object) => api.get("/customers", { params });

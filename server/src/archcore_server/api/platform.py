@@ -622,6 +622,13 @@ def assistant_query(
     question = str(body.get("question") or "").strip()
     if not question:
         raise HTTPException(400, "question 不能为空")
+    raw_history = body.get("history") or []
+    history = [
+        {"role": h["role"], "content": str(h.get("content") or "").strip()[:500]}
+        for h in raw_history[-8:]
+        if isinstance(h, dict) and h.get("role") in ("user", "assistant")
+        and str(h.get("content") or "").strip()
+    ]
     from ..services import ai as ai_svc
 
     cfg = ai_svc.get_ai_settings(db)
@@ -654,13 +661,13 @@ def assistant_query(
         ]
 
     system = (
-        "你是 ArchCore 管理台的 AI 管家。只依据给定【数据快照】和【检索命中】回答问题；"
-        "数据里没有的信息直说「数据里没有」，禁止编造。回答简洁中文，"
-        "引用消息时注明会话名与时间。"
+        "你是 ArchCore 管理台的 AI 管家。只依据给定【数据快照】、【检索命中】"
+        "与【对话历史】回答问题；数据里没有的信息直说「数据里没有」，禁止编造。"
+        "回答简洁中文，引用消息时注明会话名与时间；用户追问上一轮内容时按对话历史回答。"
     )
     user = f"【数据快照】{snapshot}\n【检索命中(按问题关键词)】{hits}\n【问题】{question}"
-    answer = ai_svc._call_llm(cfg, system, user)
+    answer = ai_svc._call_llm(cfg, system, user, history=history)
     db.add(AuditLog(user_id=identity["uid"], action="assistant_query", target=keyword,
-                    detail={"hits": len(hits)}))
+                    detail={"hits": len(hits), "rounds": len(history) + 1}))
     db.commit()
     return {"answer": answer, "hits": hits}

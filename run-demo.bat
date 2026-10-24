@@ -2,7 +2,7 @@
 rem ============================================================
 rem ArchCore Demo Mode (P0 #7) - synthetic data ONLY, fully
 rem isolated from real data (data/demo/). Safe on any machine.
-rem Login: admin / demo-arch-2026
+rem Login: admin / demo-arch-2026 (set by seed; no forced password change)
 rem ============================================================
 setlocal
 set "ROOT=%~dp0"
@@ -22,7 +22,8 @@ set "ARCHCORE_MEDIA_DIR=%ROOT%data/demo/media"
 set "ARCHCORE_JWT_SECRET=demo-only-secret-3f8a1c"
 set "ARCHCORE_COLLECTOR_TOKEN=demo-collector-token"
 set "ARCHCORE_COLLECTOR_WXID=wxid_demo_collector"
-set "ARCHCORE_ADMIN_BOOTSTRAP_PASSWORD=demo-arch-2026"
+rem bootstrap is internal-only; seed resets admin password to the demo password
+set "ARCHCORE_ADMIN_BOOTSTRAP_PASSWORD=demo-bootstrap-internal"
 
 echo [1/6] generating synthetic fixture data (120 days)...
 "%PY%" scripts/gen-fixtures.py --out "%ROOT%data/demo/fixture_wechat.db" --days 120 >nul

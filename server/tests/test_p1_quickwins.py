@@ -30,7 +30,7 @@ def _config_ai(client, admin_headers):
 def _patch_llm(monkeypatch, expect_in_user=None):
     from archcore_server.services import ai as ai_svc
 
-    def fake_call(cfg, system, user, timeout=90):
+    def fake_call(cfg, system, user, timeout=90, history=None):
         if expect_in_user is not None:
             assert expect_in_user in user, f"LLM 上下文缺 {expect_in_user}"
         return "AI 生成内容测试"
@@ -107,3 +107,40 @@ def test_assistant_query(client, admin_headers, monkeypatch):
 
     logs = client.get("/api/v1/audit-logs", headers=admin_headers).json()
     assert any(e["action"] == "assistant_query" for e in logs)
+
+
+def test_assistant_multi_turn(client, admin_headers, monkeypatch):
+    """多轮对话:history 透传给 LLM,非法 role 过滤,轮数进审计。"""
+    _setup_data(client, admin_headers)
+    _config_ai(client, admin_headers)
+    from archcore_server.services import ai as ai_svc
+
+    captured = {}
+
+    def fake_call(cfg, system, user, timeout=90, history=None):
+        captured["history"] = history
+        return f"答案({len(history or [])} 轮上下文)"
+
+    monkeypatch.setattr(ai_svc, "_call_llm", fake_call)
+
+    r = client.post(
+        "/api/v1/assistant/query",
+        headers=admin_headers,
+        json={
+            "question": "追问一下",
+            "history": [
+                {"role": "user", "content": "第一问"},
+                {"role": "assistant", "content": "第一答"},
+                {"role": "system", "content": "该 role 应被过滤"},
+                {"role": "user", "content": ""},
+            ],
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["answer"] == "答案(2 轮上下文)"
+    got = captured["history"]
+    assert [h["role"] for h in got] == ["user", "assistant"]  # system/空内容被过滤
+
+    logs = client.get("/api/v1/audit-logs", headers=admin_headers).json()
+    entry = [e for e in logs if e["action"] == "assistant_query"][0]
+    assert entry["detail"]["rounds"] == 3  # history 2 + 本轮 1

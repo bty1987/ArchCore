@@ -25,17 +25,25 @@ def get_ai_settings(db: Session) -> dict | None:
     return cfg
 
 
-def _call_llm(cfg: dict, system: str, user: str, timeout: int = 90) -> str:
-    """调用 OpenAI 兼容 chat/completions。独立函数便于测试注入。"""
+def _call_llm(cfg: dict, system: str, user: str, timeout: int = 90, history: list | None = None) -> str:
+    """调用 OpenAI 兼容 chat/completions。独立函数便于测试注入。
+
+    history: 可选多轮上下文 [{"role": "user"|"assistant", "content": str}, ...],
+    插在 system 与本轮 user 之间(AI 助手多轮对话用,调用方负责截断)。
+    """
+    messages = [{"role": "system", "content": system}]
+    for h in history or []:
+        role = h.get("role")
+        content = str(h.get("content") or "").strip()
+        if role in ("user", "assistant") and content:
+            messages.append({"role": role, "content": content})
+    messages.append({"role": "user", "content": user})
     resp = httpx.post(
         f"{cfg['api_base'].rstrip('/')}/chat/completions",
         headers={"Authorization": f"Bearer {cfg['api_key']}"},
         json={
             "model": cfg["model"],
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
+            "messages": messages,
             "temperature": 0.3,
         },
         timeout=timeout,

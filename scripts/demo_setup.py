@@ -70,6 +70,15 @@ def seed() -> None:
     now = datetime.utcnow()
 
     with factory() as db:
+        # 0. admin 密码设为演示密码(不同于 bootstrap):登录不再触发强制改密
+        from archcore_server.core.security import hash_password, verify_password
+        from archcore_server.models import AppUser
+
+        DEMO_PASSWORD = "demo-arch-2026"
+        admin = db.scalar(select(AppUser).where(AppUser.username == "admin"))
+        if admin is not None and not verify_password(DEMO_PASSWORD, admin.password_hash):
+            admin.password_hash = hash_password(DEMO_PASSWORD)
+
         # 1. 演示客户 + 认领(业务群/单聊 → 客户;家庭群保持待认领演示映射工作流)
         demo_map = [
             ("ABC项目群", "库迪咖啡供应链群", "contact"),
@@ -131,7 +140,7 @@ def seed() -> None:
         n_sil, n_inact = alert_engine.silence_inspection(db, now), alert_engine.inactive_inspection(db, now)
         db.commit()
         print(f"[demo] 巡检完成: collect_stale={n_stale} silence={n_sil} inactive={n_inact}")
-        print("[demo] 登录: admin / demo-arch-2026")
+        print("[demo] 登录: admin / demo-arch-2026(seed 直设,不触发强制改密)")
 
 
 if __name__ == "__main__":

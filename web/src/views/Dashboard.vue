@@ -66,25 +66,44 @@ onMounted(async () => {
   }
 });
 
+const AI_HIST_KEY = "archcore_assistant_history";
 const aiQuestion = ref("");
-const aiAnswer = ref("");
-const aiHits = ref<any[]>([]);
+const aiMessages = ref<{ role: "user" | "assistant"; content: string; hits?: any[] }[]>([]);
 const aiLoading = ref(false);
+
+try {
+  aiMessages.value = JSON.parse(localStorage.getItem(AI_HIST_KEY) || "[]");
+} catch { aiMessages.value = []; }
+
+function saveAiHistory() {
+  localStorage.setItem(AI_HIST_KEY, JSON.stringify(aiMessages.value.slice(-30)));
+}
 
 async function askAi() {
   const q = aiQuestion.value.trim();
   if (!q || aiLoading.value) return;
   aiLoading.value = true;
-  aiAnswer.value = "";
+  const history = aiMessages.value
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .slice(-8)
+    .map((m) => ({ role: m.role, content: m.content }));
+  aiMessages.value.push({ role: "user", content: q });
+  aiQuestion.value = "";
+  saveAiHistory();
   try {
-    const { data } = await assistantQuery(q);
-    aiAnswer.value = data.answer;
-    aiHits.value = data.hits || [];
+    const { data } = await assistantQuery(q, history);
+    aiMessages.value.push({ role: "assistant", content: data.answer, hits: data.hits || [] });
+    saveAiHistory();
   } catch (e: any) {
-    ElMessage.error(e.response?.data?.detail || "AI 助手暂不可用");
+    aiMessages.value.push({ role: "assistant", content: e.response?.data?.detail || "AI 助手暂不可用" });
+    saveAiHistory();
   } finally {
     aiLoading.value = false;
   }
+}
+function clearAi() {
+  aiMessages.value = [];
+  localStorage.removeItem(AI_HIST_KEY);
 }
 </script>
 
@@ -245,15 +264,19 @@ async function askAi() {
           <button :disabled="aiLoading" @click="askAi">{{ aiLoading ? "思考中…" : "提问" }}</button>
         </div>
       </div>
-      <div v-if="aiAnswer" class="ai-answer">
-        <div class="ai-a">{{ aiAnswer }}</div>
-        <div v-if="aiHits.length" class="ai-hits">
-          <div class="ai-h">相关消息（{{ aiHits.length }}）</div>
-          <div v-for="(h, i) in aiHits" :key="i" class="ai-hit">
-            <span class="ai-hs">「{{ h.session }}」</span>{{ h.content }}
-            <span class="ai-ht">{{ h.ts }}</span>
+      <div v-if="aiMessages.length" class="ai-thread">
+        <div v-for="(m, i) in aiMessages" :key="i" class="ai-msg" :class="m.role">
+          <div class="ai-role">{{ m.role === "user" ? "你" : "AI 助手" }}</div>
+          <div class="ai-a">{{ m.content }}</div>
+          <div v-if="m.hits?.length" class="ai-hits">
+            <div class="ai-h">相关消息（{{ m.hits.length }}）</div>
+            <div v-for="(h, j) in m.hits" :key="j" class="ai-hit">
+              <span class="ai-hs">「{{ h.session }}」</span>{{ h.content }}
+              <span class="ai-ht">{{ h.ts }}</span>
+            </div>
           </div>
         </div>
+        <div class="ai-clear"><el-button link size="small" @click="clearAi">清空对话</el-button></div>
       </div>
     </section>
 
@@ -359,13 +382,19 @@ async function askAi() {
   font-family: var(--sans);
 }
 .ai-input button:hover { background: var(--accent-ink); }
-.ai-answer { margin-top: 14px; border-top: 1px solid var(--rule); padding-top: 12px; }
+.ai-thread { margin-top: 14px; border-top: 1px solid var(--rule); padding-top: 12px; }
+.ai-msg { margin-bottom: 12px; }
+.ai-msg.user .ai-a { background: var(--paper-deep); border: 1px solid var(--rule);
+  border-radius: 4px; display: inline-block; padding: 6px 10px; }
+.ai-role { font-size: 11px; letter-spacing: 0.14em; color: var(--ink-3); margin-bottom: 3px; }
+.ai-msg.assistant .ai-role { color: var(--accent-ink); }
 .ai-a { font-size: 14px; line-height: 1.8; white-space: pre-wrap; color: var(--ink); }
 .ai-hits { margin-top: 10px; }
 .ai-h { font-size: 12px; color: var(--ink-3); margin-bottom: 4px; }
 .ai-hit { font-size: 13px; color: var(--ink-2); padding: 4px 0; border-bottom: 1px dashed var(--rule); }
 .ai-hs { color: var(--accent-ink); margin-right: 6px; }
 .ai-ht { float: right; font-size: 12px; color: var(--ink-3); }
+.ai-clear { text-align: right; }
 
 .collect { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
 .collect .ck { font-size: 12px; color: var(--ink-3); margin-bottom: 3px; }
