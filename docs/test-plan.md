@@ -20,7 +20,7 @@
 | L4 数据库迁移 | alembic upgrade head + FTS 检索断言 | `server/tests/test_migrations.py` | ✅ 全绿 |
 | L5 性能 | 10 万条灌库脚本 | `scripts/perf_check.py` | ✅ FTS 50ms / 组合 1ms（<2s 达标） |
 | L6 进程级冒烟 | 真实 uvicorn + urllib 全链路 | 本文档 §4（脚本化） | ✅ 5 步全过 |
-| L7 前端 | Vite build + 手工验收清单 | 本文档 §5 | ✅ build 通过 / 清单待真机 |
+| L7 前端 | **vitest 单测**(auth store/改密表单/对话流基线)+ Vite build + 手工验收清单 | `web/tests/`,npm test | ✅ 9 用例全绿 / 清单待真机 |
 | L8 M0 真机验证 | 微信 4.1.8.67 实机 | 调研报告第九节 | ✅ 2026-09-25~26 完成（登录/解密 17 库零异常/端到端归档检索） |
 | L9 工具链离线自测 | Frida hook 解析逻辑 mock 断言 | `research/hook/selftest.py` 等 | ✅ 收侧 17 字段 + 发送信封 13 字段 |
 
@@ -127,7 +127,7 @@ python scripts/gen-fixtures.py --out ./data/fixture_wechat.db
 
 ## 7. 质量门禁（DoD，工程规划 §7 重申）
 
-每次合入：ruff 0 告警 → pytest 全绿（73：server 50 + collector 23）→ 冒烟通过 → Conventional Commit → PR 合入。
+每次合入：ruff 0 告警 → pytest 全绿（73：server 50 + collector 23）+ vitest 全绿（web 9）→ 冒烟通过 → Conventional Commit → PR 合入。
 
 **测试数据含时间的红线**：断言依赖「近 N 天」窗口的用例，时间戳必须相对 `utcnow` 且避开 UTC 午夜档（v1.1 修订前有两处硬编码日期用例在翻月/跨日后必炸，已修）。
 每个迭代：可运行可演示 + 本文档清单同步更新。

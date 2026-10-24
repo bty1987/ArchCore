@@ -12,8 +12,12 @@ const newPassword = ref("");
 const confirm = ref("");
 const loading = ref(false);
 
+
 const strengthOk = computed(() => newPassword.value.length >= 8);
 const matchOk = computed(() => newPassword.value === confirm.value);
+
+// 提交就绪:旧密码已填 + 新密码合规且两次一致(按钮激活与测试断言共用)
+const pwdReady = computed(() => Boolean(oldPassword.value) && strengthOk.value && matchOk.value);
 
 async function submit() {
   if (!strengthOk.value) {
@@ -36,6 +40,7 @@ async function submit() {
     loading.value = false;
   }
 }
+defineExpose({ pwdReady, submit });
 </script>
 
 <template>
@@ -59,7 +64,7 @@ async function submit() {
           type="primary"
           style="width: 100%"
           :loading="loading"
-          :disabled="!strengthOk || !matchOk"
+          :disabled="!pwdReady"
           native-type="submit"
         >
           更新密码并重新登录

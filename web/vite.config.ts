@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 
@@ -11,4 +12,8 @@ export default defineConfig({
     },
   },
   build: { outDir: "dist", chunkSizeWarningLimit: 1500 },
+  test: {
+    environment: "jsdom",
+    globals: true,
+  },
 });
