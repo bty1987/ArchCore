@@ -2,13 +2,14 @@
 import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuth } from "./stores/auth";
-import { notifications, markNotificationsRead, dashboard } from "./api/client";
+import { notifications, markNotificationsRead, dashboard, api } from "./api/client";
 import { ElMessage } from "element-plus";
 
 const auth = useAuth();
 const route = useRoute();
 const router = useRouter();
 const unread = ref(0);
+const ver = ref<{ app: string; git: string | null; db_revision: string | null } | null>(null);
 
 const navGroups = [
   { title: "业务", items: [
@@ -43,6 +44,7 @@ async function refreshUnread() {
 }
 refreshUnread();
 setInterval(refreshUnread, 30000);
+api.get("/version").then(({ data }) => (ver.value = data)).catch(() => {});
 checkSys();
 setInterval(checkSys, 60000);
 
@@ -109,6 +111,9 @@ function logout() {
     <main class="main"><router-view /></main>
     <footer class="colophon">
       <span class="serif">ArchCore</span> · 私有化部署 · 数据 100% 自有 · 永久只收不发
+      <template v-if="ver">
+        <span class="ver">v{{ ver.app }}<template v-if="ver.git"> · {{ ver.git }}</template></span>
+      </template>
     </footer>
   </div>
   <router-view v-else />
@@ -197,4 +202,5 @@ function logout() {
   box-sizing: border-box;
 }
 .colophon .serif { color: var(--ink-2); }
+.colophon .ver { margin-left: 10px; color: var(--ink-3); font-size: 11px; }
 </style>

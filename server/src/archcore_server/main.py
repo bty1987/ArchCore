@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
+import subprocess
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -67,6 +69,36 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/v1/health")
     def health():
         return {"status": "ok", "env": settings.env}
+
+    @app.get("/api/v1/version")
+    def version():
+        """三层版本:#13 升级通道的对账基准。
+
+        app: 服务端包版本(pyproject);git: 仓库提交(离线/非 git 部署为 null);
+        db_revision: alembic 迁移版本(升级前后必须一致地推进)。
+        """
+        from importlib.metadata import PackageNotFoundError, version as pkg_version
+
+        from sqlalchemy import text as _text
+
+        try:
+            app_ver = pkg_version("archcore-server")
+        except PackageNotFoundError:  # 源码直跑未安装
+            app_ver = "0.0.0+source"
+        try:
+            git_commit = subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL, timeout=5
+            ).decode().strip()
+        except Exception:
+            git_commit = None
+        try:
+            with engine.connect() as conn:
+                db_rev = conn.execute(
+                    _text("SELECT version_num FROM alembic_version")
+                ).scalar()
+        except Exception:
+            db_rev = None
+        return {"app": app_ver, "git": git_commit, "db_revision": db_rev}
 
     return app
 

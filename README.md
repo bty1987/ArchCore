@@ -144,7 +144,7 @@ ArchCore/
 ├── web/        # 管理台前端：Vue3 + Element Plus + ECharts（vite build → dist/）
 ├── deploy/     # 部署：单机手册 / 一键备份 / systemd 单元 / 交付工具箱
 ├── design-redesign/  # 管理台设计档案（三方向概念稿/spec/方向选定记录）
-├── install.bat / run-demo.bat  # 一键安装 / 演示模式
+├── install.bat / run-demo.bat / upgrade.bat  # 一键安装 / 演示模式 / 版本升级
 └── scripts/    # 解密与增量同步 · 合成数据生成 · 性能验证 · 心跳报告
 ```
 

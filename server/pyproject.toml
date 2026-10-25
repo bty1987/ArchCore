@@ -1,6 +1,6 @@
 [project]
 name = "archcore-server"
-version = "0.2.0"
+version = "0.3.0"
 description = "ArchCore 平台服务端：采集入库、检索、客户映射、预警与通知"
 requires-python = ">=3.10"
 dependencies = [
